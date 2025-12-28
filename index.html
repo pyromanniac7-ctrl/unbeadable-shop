@@ -179,10 +179,12 @@ onAuthStateChanged(auth, async user=>{
   snap.forEach(d=>{
     const o=d.data();
     const totalPrice = o.cart.reduce((s,i)=>s+i.price,0);
-    ordersDiv.innerHTML+=`<p><b>${o.name}</b> - $${totalPrice.toFixed(2)}<br>${o.cart.map(i=>i.name+" - "+i.colors.join(", ")).join("<br>")}</p><hr>`;
+    const orderTime = new Date(o.time.seconds ? o.time.seconds*1000 : o.time).toLocaleString();
+    ordersDiv.innerHTML+=`<p><b>${o.name}</b> - $${totalPrice.toFixed(2)}<br>Time: ${orderTime}<br>${o.cart.map(i=>i.name+" - "+i.colors.join(", ")).join("<br>")}</p><hr>`;
   });
 });
 </script>
 
 </body>
 </html>
+
