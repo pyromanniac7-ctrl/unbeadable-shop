@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unbeadable Shop</title>
+<style>
+body { font-family: Arial,sans-serif; margin:0; background:#f5f7fb; }
+header { background:#7c3aed; color:white; padding:30px; text-align:center; }
+.container { max-width:1100px; margin:40px auto; padding:20px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:20px; }
+.card { background:white; padding:20px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.08); }
+.price { color:#7c3aed; font-weight:bold; }
+button { margin-top:10px; width:100%; padding:10px; background:#7c3aed; color:white; border:none; border-radius:8px; cursor:pointer; }
+button:hover { background:#6d28d9; }
+#cart,#admin { background:white; padding:20px; border-radius:12px; margin-top:40px; }
+.modal { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; justify-content:center; align-items:center; }
+.modal-content { background:white; padding:20px; border-radius:12px; width:90%; max-width:400px; }
+.color-picker { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
+.color-option { width:30px; height:30px; border-radius:50%; cursor:pointer; border:2px solid #ccc; }
+.color-option.selected { border:3px solid #7c3aed; }
+</style>
+</head>
+<body>
+
+<header>
+<h1>Unbeadable</h1>
+<p>Handmade Rubber Band Bracelets</p>
+</header>
+
+<div class="container">
+<h2>Shop</h2>
+<div class="grid" id="shopGrid"></div>
+
+<div id="cart">
+<h2>Cart</h2>
+<div id="items"></div>
+<p><strong>Total:</strong> $<span id="total">0.00</span></p>
+<input id="name" placeholder="Your name">
+<button id="checkout">Place Order</button>
+</div>
+
+<div id="admin">
+<h2>Admin Panel</h2>
+<input id="adminEmail" placeholder="Admin email">
+<input id="adminPass" type="password" placeholder="Admin password">
+<button id="adminLogin">Login</button>
+<div id="orders"></div>
+</div>
+</div>
+
+<div id="colorModal" class="modal">
+<div class="modal-content">
+<h3>Select up to 5 colors</h3>
+<div class="color-picker" id="colorPicker"></div>
+<button id="confirmColors">Add to Cart</button>
+<button id="closeModal">Cancel</button>
+</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+/* 🔥 FIREBASE CONFIG */
+const firebaseConfig = {
+  apiKey: "AIzaSyAabIc-81hx89cRxMxiDuIYV7AXvc7Gdto",
+  authDomain: "unbeadable-2e4f1.firebaseapp.com",
+  projectId: "unbeadable-2e4f1",
+  appId: "1:904715339138:web:0879a7b347805691d53b9b"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+/* 🔥 DOM ELEMENTS */
+const shopGrid = document.getElementById("shopGrid");
+const colorModal = document.getElementById("colorModal");
+const closeModal = document.getElementById("closeModal");
+const confirmColors = document.getElementById("confirmColors");
+const checkout = document.getElementById("checkout");
+const items = document.getElementById("items");
+const total = document.getElementById("total");
+const adminLogin = document.getElementById("adminLogin");
+const adminEmail = document.getElementById("adminEmail");
+const adminPass = document.getElementById("adminPass");
+const ordersDiv = document.getElementById("orders");
+
+/* 🔥 SHOP DATA */
+const products = [
+{name:"Normal Bracelet",price:0.75},{name:"Triple Normal",price:0.95},
+{name:"Fishtail",price:0.85},{name:"Inverted Fishtail",price:0.95},
+{name:"Starburst",price:1.00},{name:"Hive",price:1.50},
+{name:"Dragon Scale",price:1.75},{name:"Ladder",price:1.85},
+{name:"Flower Power",price:1.00},{name:"Tropico",price:1.00},
+{name:"Rubber Bead",price:0.85},{name:"Taffy Twist",price:1.00}
+];
+
+const colors=["Red","Blue","Green","Yellow","Purple","Orange","Pink","Black","White","Brown","Cyan","Lime"];
+
+/* 🔥 STATE */
+let cart=[], selectedBracelet="", selectedPrice=0, selectedColors=[];
+
+/* 🔥 RENDER SHOP */
+products.forEach(p=>{
+  const c=document.createElement("div");
+  c.className="card";
+  c.innerHTML=`<h3>${p.name}</h3><div class="price">$${p.price.toFixed(2)}</div><button>Add</button>`;
+  c.querySelector("button").onclick=()=>openModal(p.name,p.price);
+  shopGrid.appendChild(c);
+});
+
+/* 🔥 COLOR PICKER */
+const picker=document.getElementById("colorPicker");
+colors.forEach(c=>{
+  const d=document.createElement("div");
+  d.className="color-option"; 
+  d.style.background=c.toLowerCase();
+  d.onclick=()=>{
+    if(d.classList.contains("selected")){
+      d.classList.remove("selected");
+      selectedColors=selectedColors.filter(x=>x!==c);
+    } else if(selectedColors.length<5){
+      d.classList.add("selected");
+      selectedColors.push(c);
+    }
+  };
+  picker.appendChild(d);
+});
+
+/* 🔥 MODAL FUNCTIONS */
+function openModal(n,p){
+  selectedBracelet=n; selectedPrice=p; selectedColors=[];
+  document.querySelectorAll(".color-option").forEach(x=>x.classList.remove("selected"));
+  colorModal.style.display="flex";
+}
+closeModal.onclick=()=>colorModal.style.display="none";
+confirmColors.onclick=()=>{
+  if(!selectedColors.length) return alert("Pick colors");
+  cart.push({name:selectedBracelet,price:selectedPrice,colors:[...selectedColors]});
+  renderCart(); colorModal.style.display="none";
+};
+
+/* 🔥 RENDER CART */
+function renderCart(){
+  items.innerHTML=""; let t=0;
+  cart.forEach(x=>{
+    items.innerHTML+=`<p><b>${x.name}</b> - $${x.price}<br>${x.colors.join(", ")}</p>`;
+    t+=x.price;
+  });
+  total.innerText=t.toFixed(2);
+}
+
+/* 🔥 CHECKOUT */
+checkout.onclick=async()=>{
+  if(!document.getElementById("name").value || !cart.length) return alert("Missing info");
+  await addDoc(collection(db,"orders"),{
+    name:document.getElementById("name").value,
+    cart,
+    time:new Date()
+  });
+  cart=[]; renderCart(); alert("Order placed!");
+};
+
+/* 🔥 ADMIN LOGIN */
+adminLogin.onclick=()=>{
+  signInWithEmailAndPassword(auth, adminEmail.value, adminPass.value)
+  .catch(()=>alert("Login failed"));
+};
+
+/* 🔥 DISPLAY ORDERS */
+onAuthStateChanged(auth, async user=>{
+  if(!user) return;
+  ordersDiv.innerHTML="<h3>Orders</h3>";
+  const q=query(collection(db,"orders"),orderBy("time","desc"));
+  const snap=await getDocs(q);
+  snap.forEach(d=>{
+    const o=d.data();
+    const totalPrice = o.cart.reduce((s,i)=>s+i.price,0);
+    ordersDiv.innerHTML+=`<p><b>${o.name}</b> - $${totalPrice.toFixed(2)}<br>${o.cart.map(i=>i.name+" - "+i.colors.join(", ")).join("<br>")}</p><hr>`;
+  });
+});
+</script>
+
+</body>
+</html>
