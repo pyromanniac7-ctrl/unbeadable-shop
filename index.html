@@ -41,6 +41,12 @@ button:hover { background:#6d28d9; }
 #tipModal .modal-content button, #extraModal .modal-content button { margin-top:8px; width:auto; padding:8px 12px; margin-right:6px; }
 .adminOrderBtn { margin-left:8px; padding:6px 8px; border-radius:6px; background:#10b981; color:white; border:none; cursor:pointer; }
 .adminOrderBtn:hover { background:#059669; }
+
+/* small styles for delete modal buttons */
+#deleteModal .modal-content button { margin:6px; padding:8px 12px; border-radius:6px; cursor:pointer; }
+#deleteYes { background:#ef4444; color:white; border:none; }
+#deleteNo { background:#6b7280; color:white; border:none; }
+
 </style>
 </head>
 <body>
@@ -115,9 +121,18 @@ button:hover { background:#6d28d9; }
 </div>
 </div>
 
+<!-- DELETE CONFIRMATION MODAL (added) -->
+<div id="deleteModal" class="modal">
+  <div class="modal-content">
+    <p>Do you want to delete this order?</p>
+    <button id="deleteYes">Yes</button>
+    <button id="deleteNo">No</button>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 // --- Firebase Config ---
@@ -154,6 +169,12 @@ const extraYes = document.getElementById("extraYes");
 const extraNo = document.getElementById("extraNo");
 const toggleRatingGraph = document.getElementById("toggleRatingGraph");
 const nameInput = document.getElementById("name"); // small helpful variable
+
+// Delete modal elements (added)
+const deleteModal = document.getElementById("deleteModal");
+const deleteYes = document.getElementById("deleteYes");
+const deleteNo = document.getElementById("deleteNo");
+let orderToDeleteId = null;
 
 // --- State ---
 let colors = ["Red","Blue","Green","Yellow","Purple","Orange","Pink","Black","White","Cyan","Lime"];
@@ -329,6 +350,18 @@ function renderOrdersFromCache(){
         }
       });
       wrapper.querySelector("p").appendChild(btn);
+
+      // --- Delete Button (added) ---
+      const delBtn = document.createElement("button");
+      delBtn.className = "adminOrderBtn";
+      delBtn.style.background = "#ef4444";
+      delBtn.textContent = "Delete";
+      delBtn.addEventListener("click", () => {
+        orderToDeleteId = id;
+        deleteModal.style.display = "flex";
+      });
+      wrapper.querySelector("p").appendChild(delBtn);
+
       ordersDiv.appendChild(wrapper);
     }
 
@@ -348,6 +381,24 @@ onSnapshot(collection(db,"orders"), snapshot=>{
   renderOrdersFromCache();
 });
 
+// --- Delete modal handlers (added) ---
+deleteNo.onclick = () => {
+  orderToDeleteId = null;
+  deleteModal.style.display = "none";
+};
+deleteYes.onclick = async () => {
+  if (!orderToDeleteId) return;
+  try {
+    await deleteDoc(doc(db, "orders", orderToDeleteId));
+    orderToDeleteId = null;
+    deleteModal.style.display = "none";
+    // onSnapshot will update UI automatically when Firestore confirms deletion
+  } catch(err) {
+    console.error("Delete failed:", err);
+    alert("Failed to delete order.");
+  }
+};
+
 // --- Toggle Panels ---
 myOrdersBtn.onclick = ()=>{ myOrdersPanel.style.display = myOrdersPanel.style.display==="block"?"none":"block"; };
 
@@ -360,4 +411,3 @@ toggleRatingGraph.onclick = async ()=>{
 
 </body>
 </html>
-
