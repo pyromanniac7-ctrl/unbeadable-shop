@@ -115,24 +115,26 @@ button:hover { background:#6d28d9; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, collection, addDoc, query, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-const firebaseConfig = {apiKey:"AIzaSyAabIc-81hx89cRxMxiDuIYV7AXvc7Gdto", authDomain:"unbeadable-2e4f1.firebaseapp.com", projectId:"unbeadable-2e4f1", appId:"1:904715339138:web:0879a7b347805691d53b9b"};
+// --- Firebase Config Integrated ---
+const firebaseConfig = {
+  apiKey: "AIzaSyAabIc-81hx89cRxMxiDuIYV7AXvc7Gdto",
+  authDomain: "unbeadable-2e4f1.firebaseapp.com",
+  projectId: "unbeadable-2e4f1",
+  appId: "1:904715339138:web:0879a7b347805691d53b9b"
+};
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-const myOrdersBtn=document.getElementById("myOrdersBtn");
-const myOrdersPanel=document.getElementById("myOrdersPanel");
-const myOrdersDiv=document.getElementById("myOrders");
-myOrdersBtn.onclick=()=>{ myOrdersPanel.style.display = myOrdersPanel.style.display==="block" ? "none" : "block"; };
-
+// --- DOM Elements ---
+const myOrdersBtn = document.getElementById("myOrdersBtn");
+const myOrdersPanel = document.getElementById("myOrdersPanel");
+const myOrdersDiv = document.getElementById("myOrders");
 const stars = document.querySelectorAll(".star");
-const savedRating = localStorage.getItem("rating");
-if (savedRating) stars.forEach(s => { if(s.dataset.star <= savedRating) s.classList.add("active"); s.classList.add("locked"); });
-stars.forEach(star => { star.onclick = () => { if(localStorage.getItem("rating")) return; const rating = star.dataset.star; localStorage.setItem("rating", rating); stars.forEach(s => { if(s.dataset.star <= rating) s.classList.add("active"); s.classList.add("locked"); }); alert("Thanks for rating!"); }; });
-
 const shopGrid = document.getElementById("shopGrid");
 const colorModal = document.getElementById("colorModal");
 const closeModal = document.getElementById("closeModal");
@@ -148,99 +150,68 @@ const tipModal = document.getElementById("tipModal");
 const extraModal = document.getElementById("extraModal");
 const extraYes = document.getElementById("extraYes");
 const extraNo = document.getElementById("extraNo");
+const toggleRatingGraph = document.getElementById("toggleRatingGraph");
 
+// --- State ---
+let colors = ["Red","Blue","Green","Yellow","Purple","Orange","Pink","Black","White","Cyan","Lime"];
+let cart=[], selectedBracelet="", selectedPrice=0, selectedColors=[], pendingExtra=[];
+
+// --- Ratings Display ---
+const savedRating = localStorage.getItem("rating");
+if (savedRating) stars.forEach(s => { if(s.dataset.star <= savedRating) s.classList.add("active"); s.classList.add("locked"); });
+stars.forEach(star => { star.onclick = () => { if(localStorage.getItem("rating")) return; const rating = star.dataset.star; localStorage.setItem("rating", rating); stars.forEach(s => { if(s.dataset.star <= rating) s.classList.add("active"); s.classList.add("locked"); }); alert("Thanks for rating!"); }; });
+
+// --- Shop Products ---
 const products = [
-{name:"Normal Bracelet",price:0.75},{name:"Triple Normal",price:0.95},
-{name:"Fishtail",price:0.85},{name:"Inverted Fishtail",price:0.95},
-{name:"Starburst",price:1.00},{name:"Hive",price:1.50},
-{name:"Dragon Scale",price:1.75},{name:"Ladder",price:1.85},
-{name:"Flower Power",price:1.00},{name:"Tropico",price:1.00},
-{name:"Rubber Bead",price:0.85},{name:"Taffy Twist",price:1.00},
+{name:"Normal Bracelet",price:0.75},{name:"Triple Normal",price:0.95},{name:"Fishtail",price:0.85},{name:"Inverted Fishtail",price:0.95},
+{name:"Starburst",price:1.00},{name:"Hive",price:1.50},{name:"Dragon Scale",price:1.75},{name:"Ladder",price:1.85},
+{name:"Flower Power",price:1.00},{name:"Tropico",price:1.00},{name:"Rubber Bead",price:0.85},{name:"Taffy Twist",price:1.00},
 {name:"Random Color Bracelet",price:1.25},{name:"Mystery Bag Bracelet",price:1.50}
 ];
 
-let colors=["Red","Blue","Green","Yellow","Purple","Orange","Pink","Black","White","Cyan","Lime"];
-let cart=[], selectedBracelet="", selectedPrice=0, selectedColors=[], pendingExtra=[];
-
-products.forEach(p=>{
-  const c=document.createElement("div");
-  c.className="card";
-  c.innerHTML=`<h3>${p.name}</h3><div class="price">$${p.price.toFixed(2)}</div><button>Add</button>`;
-  c.querySelector("button").onclick=()=> {
-    if(p.name==="Random Color Bracelet" || p.name==="Mystery Bag Bracelet"){
-      selectedBracelet=p.name; selectedPrice=p.price;
-      selectedColors=[];
-      for(let i=0;i<5;i++){
-        selectedColors.push(colors[Math.floor(Math.random()*colors.length)]);
-      }
-      cart.push({name:selectedBracelet, price:selectedPrice, colors:[...selectedColors]});
-      renderCart();
-      alert(`${p.name} added with 5 random colors!`);
-    } else {
-      openModal(p.name,p.price);
-    }
-  };
-  shopGrid.appendChild(c);
-});
-
-const picker=document.getElementById("colorPicker");
+// --- Helper Functions ---
 function renderColors(){
+  const picker = document.getElementById("colorPicker");
   picker.innerHTML="";
   colors.forEach(c=>{
-    const d=document.createElement("div");
-    d.className="color-option"; 
-    d.style.background=c.toLowerCase();
-    d.onclick=()=>{
+    const d = document.createElement("div");
+    d.className="color-option"; d.style.background=c.toLowerCase();
+    d.onclick = ()=>{
       if(selectedColors.includes(c)) return;
-      if(selectedColors.length<5){
-        selectedColors.push(c);
-        d.classList.add("selected");
-      } else {
-        pendingExtra.push(c);
-        extraModal.style.display="flex";
-      }
+      if(selectedColors.length<5){ selectedColors.push(c); d.classList.add("selected"); }
+      else { pendingExtra.push(c); extraModal.style.display="flex"; }
     };
     picker.appendChild(d);
   });
 }
+function openModal(n,p){ selectedBracelet=n; selectedPrice=p; selectedColors=[]; pendingExtra=[]; renderColors(); colorModal.style.display="flex"; }
+closeModal.onclick = ()=> colorModal.style.display="none";
+extraYes.onclick = ()=> { selectedColors.push(...pendingExtra); selectedPrice += 0.25 * pendingExtra.length; pendingExtra=[]; renderCart(); extraModal.style.display="none"; };
+extraNo.onclick = ()=> { pendingExtra=[]; extraModal.style.display="none"; };
+confirmColors.onclick = ()=>{ if(!selectedColors.length) return alert("Pick colors"); cart.push({name:selectedBracelet, price:selectedPrice, colors:[...selectedColors]}); renderCart(); colorModal.style.display="none"; };
+function renderCart(){ items.innerHTML=""; let t=0; cart.forEach((x,i)=>{ items.innerHTML+=`<p><b>${x.name}</b> - $${x.price.toFixed(2)}<br>${x.colors.join(", ")}<button class="deleteBtn" onclick="removeFromCart(${i})">Remove</button></p>`; t+=x.price; }); total.innerText=t.toFixed(2); }
+window.removeFromCart = (i)=>{ cart.splice(i,1); renderCart(); };
 
-function openModal(n,p){
-  selectedBracelet=n; selectedPrice=p; selectedColors=[]; pendingExtra=[];
-  document.querySelectorAll(".color-option").forEach(x=>x.classList.remove("selected"));
-  renderColors();
-  colorModal.style.display="flex";
-}
-closeModal.onclick=()=>colorModal.style.display="none";
+// --- Add Products ---
+products.forEach(p=>{
+  const c = document.createElement("div"); c.className="card";
+  c.innerHTML=`<h3>${p.name}</h3><div class="price">$${p.price.toFixed(2)}</div><button>Add</button>`;
+  c.querySelector("button").onclick = ()=>{
+    if(p.name.includes("Random") || p.name.includes("Mystery")){
+      selectedBracelet=p.name; selectedPrice=p.price; selectedColors=[];
+      for(let i=0;i<5;i++){ selectedColors.push(colors[Math.floor(Math.random()*colors.length)]); }
+      cart.push({name:selectedBracelet, price:selectedPrice, colors:[...selectedColors]}); renderCart();
+      alert(`${p.name} added with 5 random colors!`);
+    } else { openModal(p.name,p.price); }
+  };
+  shopGrid.appendChild(c);
+});
 
-extraYes.onclick = ()=>{
-  selectedColors.push(...pendingExtra);
-  selectedPrice += 0.25 * pendingExtra.length;
-  pendingExtra=[];
-  renderCart();
-  extraModal.style.display="none";
-};
-extraNo.onclick = ()=>{ pendingExtra=[]; extraModal.style.display="none"; };
-
-confirmColors.onclick=()=>{
-  if(!selectedColors.length) return alert("Pick colors");
-  cart.push({name:selectedBracelet, price:selectedPrice, colors:[...selectedColors]});
-  renderCart(); colorModal.style.display="none";
-};
-
-function renderCart(){
-  items.innerHTML=""; let t=0;
-  cart.forEach((x,i)=>{
-    items.innerHTML+=`<p><b>${x.name}</b> - $${x.price.toFixed(2)}<br>${x.colors.join(", ")}<button class="deleteBtn" onclick="removeFromCart(${i})">Remove</button></p>`;
-    t+=x.price;
-  });
-  total.innerText=t.toFixed(2);
-}
-window.removeFromCart=(index)=>{ cart.splice(index,1); renderCart(); };
-
-checkout.onclick=()=>{ if(!document.getElementById("name").value || !cart.length) return alert("Missing info"); tipModal.style.display="flex"; };
+// --- Checkout & Tip ---
+checkout.onclick = ()=>{ if(!document.getElementById("name").value || !cart.length) return alert("Missing info"); tipModal.style.display="flex"; };
 tipModal.querySelectorAll("button").forEach(b=>{
   b.onclick=async()=>{
-    let tip = parseInt(b.dataset.tip);
+    const tip = parseInt(b.dataset.tip);
     tipModal.style.display="none";
     await addDoc(collection(db,"orders"),{
       name:document.getElementById("name").value,
@@ -254,8 +225,39 @@ tipModal.querySelectorAll("button").forEach(b=>{
     alert(`Order placed!${tip>0?" Tip added: $"+tip:""}`);
   };
 });
+
+// --- Admin Login ---
+adminLogin.onclick = async ()=>{
+  try {
+    await signInWithEmailAndPassword(auth, adminEmail.value, adminPass.value);
+    const snapshot = await getDocs(query(collection(db,"orders")));
+    ordersDiv.innerHTML = "";
+    snapshot.forEach(doc=>{
+      const data = doc.data();
+      ordersDiv.innerHTML += `<p><b>${data.name}</b> - $${data.cart.reduce((a,b)=>a+b.price,0).toFixed(2)} - <span class="${data.status==='done'?'doneBadge':'pendingBadge'}">${data.status}</span></p>`;
+    });
+    alert("Admin logged in!");
+  } catch(e){ alert("Admin login failed"); }
+};
+
+// --- My Orders Toggle ---
+myOrdersBtn.onclick = ()=>{ myOrdersPanel.style.display = myOrdersPanel.style.display==="block"?"none":"block"; };
+
+// --- Ratings Graph Toggle ---
+toggleRatingGraph.onclick = async ()=>{
+  const panel = document.getElementById("ratingGraphPanel");
+  panel.style.display = panel.style.display==="block"?"none":"block";
+  if(panel.style.display==="block"){
+    const snapshot = await getDocs(query(collection(db,"orders")));
+    let counts=[0,0,0,0,0], sum=0, totalRatings=0;
+    snapshot.forEach(doc=>{ const r=parseInt(doc.data().rating); if(r>0){ counts[r-1]++; sum+=r; totalRatings++; } });
+    const avg = totalRatings ? (sum/totalRatings).toFixed(2) : 0;
+    document.getElementById("avgRating").innerText = `Average: ${avg} ★`;
+    const ratingBars = document.getElementById("ratingBars"); ratingBars.innerHTML="";
+    counts.reverse().forEach((c,i)=>{ ratingBars.innerHTML+=`<div class="barContainer"><span class="barLabel">${5-i}</span><div class="barBg"><div class="bar" style="width:${totalRatings?c/totalRatings*100:0}%"></div></div><span class="barCount">${c}</span></div>`; });
+  }
+};
 </script>
 
 </body>
 </html>
-
