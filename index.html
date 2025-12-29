@@ -23,7 +23,7 @@ button:hover { background:#6d28d9; }
 .deleteBtn:hover { background:#b91c1c; }
 .doneBadge { color:green; font-weight:bold; }
 .pendingBadge { color:#ca8a04; font-weight:bold; }
-#myOrdersBtn { position:fixed; top:15px; right:15px; width:auto; padding:10px 14px; }
+#myOrdersBtn { position:fixed; top:15px; right:15px; width:auto; padding:10px 14px; display:flex; align-items:center; gap:8px; }
 #myOrdersPanel { position:fixed; top:60px; right:15px; background:white; padding:15px; border-radius:12px; width:300px; max-height:70vh; overflow:auto; display:none; box-shadow:0 10px 25px rgba(0,0,0,.2); }
 #ratingBox { position: fixed; top:15px; right:140px; background:white; padding:8px 12px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.15); display:flex; align-items:center; gap:6px; z-index:1000; }
 .star { font-size:20px; cursor:pointer; color:#d1d5db; transition: transform 140ms ease; }
@@ -47,6 +47,22 @@ button:hover { background:#6d28d9; }
 #deleteModal .modal-content button { margin:6px; padding:8px 12px; border-radius:6px; cursor:pointer; }
 #deleteYes { background:#ef4444; color:white; border:none; }
 #deleteNo { background:#6b7280; color:white; border:none; }
+
+/* badge for My Orders */
+#myOrdersBadge {
+  display:inline-flex;
+  min-width:20px;
+  height:20px;
+  padding:0 6px;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  background:#ef4444;
+  color:white;
+  font-weight:bold;
+  font-size:12px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.15);
+}
 
 /* ADDED: round bracelet images above text (only added, nothing removed) */
 .bracelet-img{
@@ -122,8 +138,9 @@ button:hover { background: var(--accent-hover) !important; }
 </div>
 
 <button id="toggleRatingGraph">Ratings</button>
-<button id="myOrdersBtn">My Orders</button>
-<div id="myOrdersPanel">
+<!-- ADDED: badge element inside/next to the button (additive only) -->
+<button id="myOrdersBtn" aria-haspopup="true" aria-expanded="false">My Orders <span id="myOrdersBadge">0</span></button>
+<div id="myOrdersPanel" aria-hidden="true">
   <h3>My Orders</h3>
   <div id="myOrders"></div>
 
@@ -229,6 +246,7 @@ const auth = getAuth(app);
 const myOrdersBtn = document.getElementById("myOrdersBtn");
 const myOrdersPanel = document.getElementById("myOrdersPanel");
 const myOrdersDiv = document.getElementById("myOrders");
+const myOrdersBadge = document.getElementById("myOrdersBadge");
 const stars = document.querySelectorAll(".star");
 const shopGrid = document.getElementById("shopGrid");
 const colorModal = document.getElementById("colorModal");
@@ -436,6 +454,7 @@ tipModal.querySelectorAll("button").forEach(b=>{
       alert(`Order placed!${tip>0?" Tip added: $"+tip:""}`);
       // Immediately re-render (in case onSnapshot arrives a bit later)
       renderOrdersFromCache();
+      updateMyOrdersBadge(); // update badge right away
     } catch(e) {
       console.error("Failed to place order:", e);
       alert("Failed to place order. Try again.");
@@ -482,11 +501,13 @@ onAuthStateChanged(auth, (user) => {
    helper to render using the cached snapshot docs (creates DOM so admin buttons can attach)
    MODIFIED: show orders that match the currentName OR match the clientId for this browser.
    This ensures "My Orders" shows the orders *you* created from this browser instantly.
+   Also updates the badge count.
    ---------------------------- */
 function renderOrdersFromCache(){
   ordersDiv.innerHTML = "";
   myOrdersDiv.innerHTML = "";
   const currentName = nameInput.value.trim();
+  let myCount = 0;
 
   ordersCache.forEach(docSnap=>{
     const data = docSnap.data();
@@ -528,6 +549,7 @@ function renderOrdersFromCache(){
 
     // Show in My Orders if either name matches currentName OR this order was created by this clientId
     if( (currentName && data.name === currentName) || (data.clientId && data.clientId === clientId) ){
+      myCount++;
       const myWrap = document.createElement("div");
       // highlight orders created by this client
       const youBadge = (data.clientId && data.clientId === clientId) ? " <small>(You)</small>" : "";
@@ -535,15 +557,51 @@ function renderOrdersFromCache(){
       myOrdersDiv.appendChild(myWrap);
     }
   });
+
+  // update badge count to number of matching orders for this user/browser
+  updateMyOrdersBadge(myCount);
 }
 
 /* ----------------------------
+   updateMyOrdersBadge: sets the badge and animates briefly when increased
+   If count omitted, compute by scanning cache (safe fallback)
+   ---------------------------- */
+function updateMyOrdersBadge(count){
+  // if count not provided, compute:
+  if(typeof count === 'undefined'){
+    const currentName = nameInput.value.trim();
+    count = ordersCache.reduce((acc,docSnap)=>{
+      const data = docSnap.data();
+      if((currentName && data.name === currentName) || (data.clientId && data.clientId === clientId)) return acc+1;
+      return acc;
+    }, 0);
+  }
+  // set number (show 99+ if large)
+  const display = count > 99 ? '99+' : String(count);
+  if(myOrdersBadge){
+    const prev = myOrdersBadge.innerText;
+    myOrdersBadge.innerText = display;
+    // small "pop" when number increases
+    if(Number(count) > Number(prev || 0)){
+      myOrdersBadge.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.18)' }, { transform: 'scale(1)' }], { duration: 300, easing: 'ease-out' });
+    }
+    // hide badge when zero
+    myOrdersBadge.style.display = (count === 0 ? 'none' : 'inline-flex');
+  }
+}
+
+// initialize badge hidden if zero
+myOrdersBadge.style.display = 'none';
+
+/* ----------------------------
    Real-time Orders: cache docs and render via renderOrdersFromCache (unchanged but essential)
+   We also update the badge on snapshot so changes appear instantly
    ---------------------------- */
 onSnapshot(collection(db,"orders"), snapshot=>{
   ordersCache = [];
   snapshot.forEach(doc => ordersCache.push(doc));
   renderOrdersFromCache();
+  updateMyOrdersBadge(); // ensure badge changes live
 });
 
 /* ----------------------------
@@ -568,7 +626,11 @@ deleteYes.onclick = async () => {
 // --- Toggle Panels (unchanged) ---
 // keep existing behavior but also cause the customize position & render to update
 myOrdersBtn.onclick = ()=>{ 
-  myOrdersPanel.style.display = myOrdersPanel.style.display==="block"?"none":"block";
+  const isOpen = myOrdersPanel.style.display === "block";
+  // toggle aria-expanded
+  myOrdersPanel.style.display = isOpen ? "none" : "block";
+  myOrdersBtn.setAttribute('aria-expanded', String(!isOpen));
+  myOrdersPanel.setAttribute('aria-hidden', String(isOpen));
   // ensure immediate re-render and reposition after toggle
   setTimeout(()=>{ updateCustomizePosition(); renderOrdersFromCache(); }, 45);
 };
@@ -798,6 +860,7 @@ nameInput.addEventListener('input', () => {
   // local store update so it persists & render refreshes
   localStorage.setItem('unbeadable_name', nameInput.value.trim());
   renderOrdersFromCache();
+  updateMyOrdersBadge(); // also refresh badge
 });
 
 /* ----------------------------
