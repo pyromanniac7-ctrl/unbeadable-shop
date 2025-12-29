@@ -48,6 +48,16 @@ button:hover { background:#6d28d9; }
 #deleteYes { background:#ef4444; color:white; border:none; }
 #deleteNo { background:#6b7280; color:white; border:none; }
 
+/* ADDED: round bracelet images above text (only added, nothing removed) */
+.bracelet-img{
+  width:120px;
+  height:120px;
+  object-fit:cover;
+  border-radius:50%;
+  display:block;
+  margin:0 auto 10px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.12);
+}
 </style>
 </head>
 <body>
@@ -226,8 +236,6 @@ stars.forEach(star => {
         userName: nameInput.value ? nameInput.value.trim() : null,
         time: new Date()
       });
-      // user feedback
-      // don't alert too often; small toast could be added, keep simple:
       console.log("Saved rating:", rating);
     } catch (e) {
       console.error("Failed to save rating to Firestore:", e);
@@ -242,6 +250,24 @@ const products = [
 {name:"Flower Power",price:1.00},{name:"Tropico",price:1.00},{name:"Rubber Bead",price:0.85},{name:"Taffy Twist",price:1.00},
 {name:"Random Color Bracelet",price:1.25},{name:"Mystery Bag Bracelet",price:1.50}
 ];
+
+// --- ADDED: Bracelet images map (uses Unsplash dynamic queries) ---
+const braceletImages = {
+  "Normal Bracelet": "https://source.unsplash.com/400x400/?rainbow+loom+normal+bracelet",
+  "Triple Normal": "https://source.unsplash.com/400x400/?rainbow+loom+triple+bracelet",
+  "Fishtail": "https://source.unsplash.com/400x400/?rainbow+loom+fishtail+bracelet",
+  "Inverted Fishtail": "https://source.unsplash.com/400x400/?rainbow+loom+inverted+fishtail+bracelet",
+  "Starburst": "https://source.unsplash.com/400x400/?rainbow+loom+starburst+bracelet",
+  "Hive": "https://source.unsplash.com/400x400/?rainbow+loom+hive+bracelet",
+  "Dragon Scale": "https://source.unsplash.com/400x400/?rainbow+loom+dragon+scale+bracelet",
+  "Ladder": "https://source.unsplash.com/400x400/?rainbow+loom+ladder+bracelet",
+  "Flower Power": "https://source.unsplash.com/400x400/?rainbow+loom+flower+bracelet",
+  "Tropico": "https://source.unsplash.com/400x400/?rainbow+loom+tropico+bracelet",
+  "Rubber Bead": "https://source.unsplash.com/400x400/?rainbow+loom+bead+bracelet",
+  "Taffy Twist": "https://source.unsplash.com/400x400/?rainbow+loom+taffy+twist+bracelet",
+  "Random Color Bracelet": "https://source.unsplash.com/400x400/?rainbow+loom+random+bracelet",
+  "Mystery Bag Bracelet": "https://source.unsplash.com/400x400/?rainbow+loom+mystery+bracelet"
+};
 
 // --- Color Picker & Cart functions (unchanged) ---
 function renderColors(){
@@ -275,9 +301,16 @@ function renderCart(){
 }
 window.removeFromCart = (i)=>{ cart.splice(i,1); renderCart(); };
 
+// --- Add Products: now include <img> above product name (images added, nothing removed) ---
 products.forEach(p=>{
   const c = document.createElement("div"); c.className="card";
-  c.innerHTML=`<h3>${p.name}</h3><div class="price">$${p.price.toFixed(2)}</div><button>Add</button>`;
+  const imgSrc = braceletImages[p.name] || "https://source.unsplash.com/400x400/?rainbow+loom+bracelet";
+  c.innerHTML=`
+    <img class="bracelet-img" src="${imgSrc}" alt="${p.name}">
+    <h3>${p.name}</h3>
+    <div class="price">$${p.price.toFixed(2)}</div>
+    <button>Add</button>
+  `;
   c.querySelector("button").onclick = ()=>{
     if(p.name.includes("Random") || p.name.includes("Mystery")){
       selectedBracelet=p.name; selectedPrice=p.price; selectedColors=[];
@@ -475,8 +508,6 @@ onSnapshot(collection(db,"ratings"), snapshot=>{
     }
   });
 });
-
-// If no ratings yet, the graph will show zeros. Users' star clicks write to ratings collection (see star handler above).
 
 // --- Ratings toggle button already present (keeps original behaviour but uses new graph) ---
 toggleRatingGraph.onclick = async ()=>{
