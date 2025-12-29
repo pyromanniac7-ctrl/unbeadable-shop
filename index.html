@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Unbeadable Shop</title>
 <style>
 body { font-family: Arial,sans-serif; margin:0; background:#f5f7fb; }
@@ -29,14 +29,15 @@ button:hover { background:#6d28d9; }
 .star { font-size:20px; cursor:pointer; color:#d1d5db; }
 .star.active { color:#facc15; }
 .star.locked { cursor:default; }
-#ratingGraphPanel { position: fixed; top:60px; right:280px; background:white; padding:12px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.15); width:200px; z-index:1000; display:none; }
-.barContainer { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
-.barLabel { width:15px; font-size:12px; text-align:right; }
-.bar { background:#7c3aed; height:12px; border-radius:6px; flex:1; }
-.barBg { background:#e5e7eb; flex:1; height:12px; border-radius:6px; }
-.barCount { font-size:12px; width:20px; text-align:left; }
-.avgRating { text-align:center; font-weight:bold; margin-bottom:6px; font-size:14px; }
-#toggleRatingGraph { position: fixed; top:15px; right:500px; padding:8px 12px; border-radius:12px; border:none; background:#7c3aed; color:white; cursor:pointer; z-index:1000; }
+#ratingGraphPanel { position: fixed; top:60px; right:280px; background:white; padding:12px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.15); width:260px; z-index:1000; display:none; }
+.barContainer { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.barLabel { width:24px; font-size:12px; text-align:right; }
+.barWrap { display:flex; align-items:center; gap:8px; flex:1; }
+.barBg { background:#e5e7eb; flex:1; height:12px; border-radius:6px; overflow:hidden; }
+.bar { height:12px; border-radius:6px; width:0%; background:#7c3aed; transition: width 300ms ease; }
+.barCount { font-size:12px; width:28px; text-align:left; }
+.avgRating { text-align:center; font-weight:bold; margin-bottom:8px; font-size:14px; }
+#toggleRatingGraph { position: fixed; top:15px; right:460px; padding:6px 8px; border-radius:10px; border:none; background:#7c3aed; color:white; cursor:pointer; z-index:1000; font-size:12px; }
 #toggleRatingGraph:hover { background:#6d28d9; }
 #tipModal .modal-content button, #extraModal .modal-content button { margin-top:8px; width:auto; padding:8px 12px; margin-right:6px; }
 .adminOrderBtn { margin-left:8px; padding:6px 8px; border-radius:6px; background:#10b981; color:white; border:none; cursor:pointer; }
@@ -61,7 +62,9 @@ button:hover { background:#6d28d9; }
 
 <div id="ratingGraphPanel">
   <div class="avgRating" id="avgRating">Average: 0 ★</div>
-  <div id="ratingBars"></div>
+  <div id="ratingBars">
+    <!-- bars will be rendered here (5→1) -->
+  </div>
 </div>
 
 <button id="toggleRatingGraph">Ratings</button>
@@ -132,7 +135,7 @@ button:hover { background:#6d28d9; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 // --- Firebase Config ---
@@ -194,12 +197,45 @@ if (storedName) {
   nameInput.value = storedName;
 }
 
-// --- Ratings ---
-const savedRating = localStorage.getItem("rating");
-if (savedRating) stars.forEach(s => { if(s.dataset.star <= savedRating) s.classList.add("active"); s.classList.add("locked"); });
-stars.forEach(star => { star.onclick = () => { if(localStorage.getItem("rating")) return; const rating = star.dataset.star; localStorage.setItem("rating", rating); stars.forEach(s => { if(s.dataset.star <= rating) s.classList.add("active"); s.classList.add("locked"); }); alert("Thanks for rating!"); }; });
+// --- RATINGS: per-browser user id so users can update their rating ---
+let userRatingId = localStorage.getItem('unbeadable_uid');
+if(!userRatingId){
+  userRatingId = 'u_' + Math.random().toString(36).slice(2,10);
+  localStorage.setItem('unbeadable_uid', userRatingId);
+}
 
-// --- Shop Products ---
+// --- Ratings UI init from localStorage (if present) ---
+const savedRating = localStorage.getItem("rating");
+if (savedRating) {
+  stars.forEach(s => { if(s.dataset.star <= savedRating) s.classList.add("active"); });
+}
+
+// --- Star click: allow changes, save locally, push to Firestore ratings collection, update UI instantly ---
+stars.forEach(star => {
+  star.onclick = async () => {
+    const rating = Number(star.dataset.star);
+    // update local UI
+    stars.forEach(s => s.classList.remove("active"));
+    stars.forEach(s => { if(Number(s.dataset.star) <= rating) s.classList.add("active"); });
+    // persist locally
+    localStorage.setItem("rating", String(rating));
+    // save user rating to Firestore (ratings collection, docId = userRatingId)
+    try {
+      await setDoc(doc(db, "ratings", userRatingId), {
+        rating: rating,
+        userName: nameInput.value ? nameInput.value.trim() : null,
+        time: new Date()
+      });
+      // user feedback
+      // don't alert too often; small toast could be added, keep simple:
+      console.log("Saved rating:", rating);
+    } catch (e) {
+      console.error("Failed to save rating to Firestore:", e);
+    }
+  };
+});
+
+// --- Shop Products (unchanged behavior) ---
 const products = [
 {name:"Normal Bracelet",price:0.75},{name:"Triple Normal",price:0.95},{name:"Fishtail",price:0.85},{name:"Inverted Fishtail",price:0.95},
 {name:"Starburst",price:1.00},{name:"Hive",price:1.50},{name:"Dragon Scale",price:1.75},{name:"Ladder",price:1.85},
@@ -207,7 +243,7 @@ const products = [
 {name:"Random Color Bracelet",price:1.25},{name:"Mystery Bag Bracelet",price:1.50}
 ];
 
-// --- Color Picker ---
+// --- Color Picker & Cart functions (unchanged) ---
 function renderColors(){
   const picker = document.getElementById("colorPicker");
   picker.innerHTML="";
@@ -228,7 +264,6 @@ extraYes.onclick = ()=> { selectedColors.push(...pendingExtra); selectedPrice +=
 extraNo.onclick = ()=> { pendingExtra=[]; extraModal.style.display="none"; };
 confirmColors.onclick = ()=>{ if(!selectedColors.length) return alert("Pick colors"); cart.push({name:selectedBracelet, price:selectedPrice, colors:[...selectedColors]}); renderCart(); colorModal.style.display="none"; };
 
-// --- Cart ---
 function renderCart(){ 
   items.innerHTML=""; 
   let t=0; 
@@ -240,7 +275,6 @@ function renderCart(){
 }
 window.removeFromCart = (i)=>{ cart.splice(i,1); renderCart(); };
 
-// --- Add Products ---
 products.forEach(p=>{
   const c = document.createElement("div"); c.className="card";
   c.innerHTML=`<h3>${p.name}</h3><div class="price">$${p.price.toFixed(2)}</div><button>Add</button>`;
@@ -255,7 +289,7 @@ products.forEach(p=>{
   shopGrid.appendChild(c);
 });
 
-// --- Checkout & Tip ---
+// --- Checkout & Tip (unchanged) ---
 checkout.onclick = ()=>{ 
   if(!nameInput.value || !cart.length) return alert("Missing info"); 
   tipModal.style.display="flex"; 
@@ -281,16 +315,15 @@ tipModal.querySelectorAll("button").forEach(b=>{
   };
 });
 
-// --- Admin login/logout (button toggles) ---
+// --- Admin login/logout (button toggles) (unchanged behavior) ---
 adminLogin.onclick = async ()=>{
   if (!adminLoggedIn) {
     // attempt sign in
     try {
       await signInWithEmailAndPassword(auth, adminEmail.value, adminPass.value);
-      // success is handled by onAuthStateChanged
+      // success handled by onAuthStateChanged
     } catch(e){ alert("Admin login failed"); }
   } else {
-    // sign out
     try {
       await signOut(auth);
       adminLoggedIn = false;
@@ -301,13 +334,12 @@ adminLogin.onclick = async ()=>{
   }
 };
 
-// --- onAuthStateChanged: keeps adminLoggedIn true when Firebase has a session ---
+// --- onAuthStateChanged: keeps adminLoggedIn true when Firebase has a session (unchanged behavior) ---
 onAuthStateChanged(auth, (user) => {
   if (user) {
     adminLoggedIn = true;
     localStorage.setItem('unbeadable_admin', '1');
     adminLogin.innerText = "Logout";
-    // auto-open admin panel (scroll into view, focus it)
     ordersDiv.scrollIntoView({behavior:"smooth", block:"center"});
     renderOrdersFromCache();
   } else {
@@ -330,20 +362,16 @@ function renderOrdersFromCache(){
     const itemsList = data.cart.map(c=>`${c.name} (${c.colors.join(", ")})`).join("<br>");
     const time = data.time && data.time.toDate ? data.time.toDate().toLocaleString() : new Date(data.time.seconds*1000).toLocaleString();
 
-    // Build a DOM block so we can attach a handler to the admin button
     const wrapper = document.createElement("div");
     wrapper.innerHTML = `<p><b>${data.name}</b> - $${totalPrice} - Tip: $${data.tip} - <span class="${data.status==='done'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
 
-    // If admin, add "Mark Complete" button
     if(adminLoggedIn){
       const btn = document.createElement("button");
       btn.className = "adminOrderBtn";
       btn.textContent = "Mark Complete";
-      // Attach click to update the Firestore document status -> "complete"
       btn.addEventListener("click", async () => {
         try {
           await updateDoc(doc(db, "orders", id), { status: "complete" });
-          // no further action required; onSnapshot will update UI
         } catch(err){
           console.error("Failed to update status:", err);
           alert("Failed to update order status.");
@@ -351,7 +379,7 @@ function renderOrdersFromCache(){
       });
       wrapper.querySelector("p").appendChild(btn);
 
-      // --- Delete Button (added) ---
+      // Delete Button (added)
       const delBtn = document.createElement("button");
       delBtn.className = "adminOrderBtn";
       delBtn.style.background = "#ef4444";
@@ -365,7 +393,6 @@ function renderOrdersFromCache(){
       ordersDiv.appendChild(wrapper);
     }
 
-    // My Orders (only show if matches current name)
     if(currentName && data.name === currentName){
       const myWrap = document.createElement("div");
       myWrap.innerHTML = `<p><b>${data.name}</b> - $${totalPrice} - Tip: $${data.tip} - <span class="${data.status==='done'?'doneBadge': data.status==='complete'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
@@ -374,14 +401,14 @@ function renderOrdersFromCache(){
   });
 }
 
-// --- Real-time Orders: cache docs and render via renderOrdersFromCache ---
+// --- Real-time Orders: cache docs and render via renderOrdersFromCache (unchanged) ---
 onSnapshot(collection(db,"orders"), snapshot=>{
   ordersCache = [];
   snapshot.forEach(doc => ordersCache.push(doc));
   renderOrdersFromCache();
 });
 
-// --- Delete modal handlers (added) ---
+// --- Delete modal handlers (unchanged) ---
 deleteNo.onclick = () => {
   orderToDeleteId = null;
   deleteModal.style.display = "none";
@@ -392,17 +419,66 @@ deleteYes.onclick = async () => {
     await deleteDoc(doc(db, "orders", orderToDeleteId));
     orderToDeleteId = null;
     deleteModal.style.display = "none";
-    // onSnapshot will update UI automatically when Firestore confirms deletion
   } catch(err) {
     console.error("Delete failed:", err);
     alert("Failed to delete order.");
   }
 };
 
-// --- Toggle Panels ---
+// --- Toggle Panels (unchanged) ---
 myOrdersBtn.onclick = ()=>{ myOrdersPanel.style.display = myOrdersPanel.style.display==="block"?"none":"block"; };
 
-// --- Ratings Graph (keeps original behavior) ---
+// --- RATINGS AGGREGATION: AppStore-like bar graph (live) ---
+// initialize bars (5..1)
+const ratingBarsContainer = document.getElementById('ratingBars');
+function buildEmptyBars(){
+  ratingBarsContainer.innerHTML = '';
+  for(let star=5; star>=1; star--){
+    const row = document.createElement('div');
+    row.className = 'barContainer';
+    row.innerHTML = `<div class="barLabel">${star}</div><div class="barWrap"><div class="barBg"><div class="bar" data-star="${star}" style="width:0%"></div></div><div class="barCount" data-count="${star}">0</div></div>`;
+    ratingBarsContainer.appendChild(row);
+  }
+}
+buildEmptyBars();
+
+// Listen to ratings collection (realtime) and update graph
+onSnapshot(collection(db,"ratings"), snapshot=>{
+  const counts = [0,0,0,0,0]; // index 0=>1 star ... 4=>5 star
+  let sum=0, total=0;
+  snapshot.forEach(docSnap=>{
+    const d = docSnap.data();
+    const r = Number(d.rating) || 0;
+    if(r>=1 && r<=5){
+      counts[r-1] += 1;
+      sum += r;
+      total += 1;
+    }
+  });
+  const avg = total ? (sum/total).toFixed(2) : "0.00";
+  document.getElementById('avgRating').innerText = `Average: ${avg} ★`;
+
+  // update bar elements: we built them 5->1 (descending). counts index is 1->5 at 0..4
+  // need total to compute percent
+  const bars = ratingBarsContainer.querySelectorAll('.bar');
+  // bars are in descending order data-star 5..1
+  bars.forEach(barEl => {
+    const star = Number(barEl.getAttribute('data-star'));
+    const c = counts[star-1] || 0;
+    const pct = total ? (c/total*100) : 0;
+    barEl.style.width = pct + '%';
+    // update the corresponding count text
+    const parent = barEl.closest('.barWrap');
+    if(parent){
+      const countEl = parent.querySelector('.barCount');
+      if(countEl) countEl.innerText = c;
+    }
+  });
+});
+
+// If no ratings yet, the graph will show zeros. Users' star clicks write to ratings collection (see star handler above).
+
+// --- Ratings toggle button already present (keeps original behaviour but uses new graph) ---
 toggleRatingGraph.onclick = async ()=>{
   const panel = document.getElementById("ratingGraphPanel");
   panel.style.display = panel.style.display==="block"?"none":"block";
