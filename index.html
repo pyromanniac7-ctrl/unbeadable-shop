@@ -78,12 +78,12 @@ button:hover { background: var(--accent-hover) !important; }
 
 /* keep white backgrounds untouched - we only change accent colors */
 
-/* New: container for Customize placed under My Orders (positioned but non-destructive) */
+/* New: container for Customize placed under My Orders (positioned but non-destructive)
+   top is set dynamically via JS so it stays exactly 3px below the My Orders button. */
 #customizeContainer{
   position: fixed;
   right: 15px;
-  /* place just under the My Orders panel (which is top:60px; max-height:70vh) */
-  top: calc(60px + 70vh + 10px);
+  top: 0; /* will be overwritten by JS at runtime to place it under the My Orders button with 3px gap */
   width: 300px;
   z-index: 1000;
   text-align:center;
@@ -258,6 +258,7 @@ let orderToDeleteId = null;
 const customizeToggle = document.getElementById("customizeToggle");
 const customizePanel = document.getElementById("customizePanel");
 const customizePicker = document.getElementById("customizePicker");
+const customizeContainer = document.getElementById("customizeContainer");
 
 // --- State ---
 let colors = ["Red","Blue","Green","Yellow","Purple","Orange","Pink","Black","White","Cyan","Lime"];
@@ -591,6 +592,8 @@ toggleRatingGraph.onclick = async ()=>{
    - Selecting a color updates CSS variables to change the GUI accent
    - White is intentionally excluded
    - Accent choice is saved to localStorage and applied on load
+   - Position of the customize container is dynamically set to be exactly
+     3px below the My Orders button (keeps calling update on resize/scroll)
    ---------------------------- */
 
 // Palette for GUI customization (no white)
@@ -667,6 +670,7 @@ customizeToggle.onclick = () => {
     const saved = localStorage.getItem('unbeadable_accent');
     if(saved){
       customizePicker.querySelectorAll('.color-option').forEach(el=>{
+        // comparing lowercase hex strings
         if(el.style.background.toLowerCase() === saved.toLowerCase()) el.classList.add('selected');
       });
     }
@@ -676,10 +680,48 @@ customizeToggle.onclick = () => {
 // build initial customize picker invisibly (optional)
 buildCustomizePicker();
 
-// ensure the header/button/etc use the current variable values on load (already applied by CSS variable)
-if(!savedAccent){
-  // default remains original purple already set in :root
+// DYNAMIC POSITIONING: place customizeContainer exactly 3px under myOrdersBtn
+function updateCustomizePosition(){
+  if(!customizeContainer || !myOrdersBtn) return;
+  // get button rect relative to viewport
+  const btnRect = myOrdersBtn.getBoundingClientRect();
+  // compute top value so customizeContainer's top is 3px below the button's bottom
+  const topPx = Math.round(btnRect.bottom + 3); // 3px gap requested
+  // apply as px so it's fixed relative to viewport (matches the fixed myOrdersBtn)
+  customizeContainer.style.top = `${topPx}px`;
+  // ensure it's visible on small screens: if button is near bottom, keep container inside viewport
+  const viewportHeight = window.innerHeight;
+  // height estimate of container (will be auto), but ensure it doesn't go off-screen: clamp if needed
+  const containerRect = customizeContainer.getBoundingClientRect();
+  // if container overflows bottom, shift it up so it fits into viewport with a small margin
+  if(containerRect.bottom > viewportHeight - 8){
+    const overflow = containerRect.bottom - (viewportHeight - 8);
+    // move container up by overflow amount
+    customizeContainer.style.top = `${Math.max(8, topPx - overflow)}px`;
+  }
 }
+
+// run once on load (defer slightly to ensure layout ready)
+window.addEventListener('load', ()=>{
+  updateCustomizePosition();
+  // if saved accent exists, mark selected visually now that picker is built
+  const saved = localStorage.getItem('unbeadable_accent');
+  if(saved && customizePicker.children.length){
+    customizePicker.querySelectorAll('.color-option').forEach(el=>{
+      if(el.style.background.toLowerCase() === saved.toLowerCase()) el.classList.add('selected');
+    });
+  }
+});
+
+// Update position on resize & scroll so the 3px gap stays correct and responsive
+window.addEventListener('resize', updateCustomizePosition);
+window.addEventListener('scroll', updateCustomizePosition);
+
+// also update when user toggles My Orders visibility (in case page changes)
+myOrdersBtn.addEventListener('click', ()=> {
+  // small timeout to allow layout changes to settle then update position
+  setTimeout(updateCustomizePosition, 40);
+});
 
 /* ----------------------------
    END CUSTOMIZE LOGIC
@@ -689,4 +731,3 @@ if(!savedAccent){
 
 </body>
 </html>
-
