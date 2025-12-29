@@ -14,8 +14,8 @@ header { background:#7c3aed; color:white; padding:30px; text-align:center; }
 button { margin-top:10px; width:100%; padding:10px; background:#7c3aed; color:white; border:none; border-radius:8px; cursor:pointer; }
 button:hover { background:#6d28d9; }
 #cart,#admin { background:white; padding:20px; border-radius:12px; margin-top:40px; }
-.modal { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; justify-content:center; align-items:center; }
-.modal-content { background:white; padding:20px; border-radius:12px; width:90%; max-width:400px; }
+.modal { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; justify-content:center; align-items:center; z-index:2000; }
+.modal-content { background:white; padding:20px; border-radius:12px; width:90%; max-width:400px; text-align:center; }
 .color-picker { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
 .color-option { width:30px; height:30px; border-radius:50%; cursor:pointer; border:2px solid #ccc; }
 .color-option.selected { border:3px solid #7c3aed; }
@@ -30,7 +30,6 @@ button:hover { background:#6d28d9; }
 .star.active { color:#facc15; }
 .star.locked { cursor:default; }
 #ratingGraphPanel { position: fixed; top:60px; right:280px; background:white; padding:12px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.15); width:200px; z-index:1000; display:none; }
-#ratingGraphPanel h4 { margin:0 0 8px 0; font-size:14px; text-align:center; }
 .barContainer { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
 .barLabel { width:15px; font-size:12px; text-align:right; }
 .bar { background:#7c3aed; height:12px; border-radius:6px; flex:1; }
@@ -39,7 +38,7 @@ button:hover { background:#6d28d9; }
 .avgRating { text-align:center; font-weight:bold; margin-bottom:6px; font-size:14px; }
 #toggleRatingGraph { position: fixed; top:15px; right:500px; padding:8px 12px; border-radius:12px; border:none; background:#7c3aed; color:white; cursor:pointer; z-index:1000; }
 #toggleRatingGraph:hover { background:#6d28d9; }
-#tipModal .modal-content button { margin-top:8px; width:auto; padding:8px 12px; margin-right:6px; }
+#tipModal .modal-content button, #extraModal .modal-content button { margin-top:8px; width:auto; padding:8px 12px; margin-right:6px; }
 </style>
 </head>
 <body>
@@ -58,7 +57,6 @@ button:hover { background:#6d28d9; }
 </div>
 
 <button id="toggleRatingGraph">Ratings</button>
-
 <button id="myOrdersBtn">My Orders</button>
 <div id="myOrdersPanel"><h3>My Orders</h3><div id="myOrders"></div></div>
 
@@ -107,10 +105,18 @@ button:hover { background:#6d28d9; }
 </div>
 </div>
 
+<div id="extraModal" class="modal">
+<div class="modal-content">
+<p>You picked more than 5 colors. Each extra color costs $0.25. Add anyway?</p>
+<button id="extraYes">Yes</button>
+<button id="extraNo">No</button>
+</div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {apiKey:"AIzaSyAabIc-81hx89cRxMxiDuIYV7AXvc7Gdto", authDomain:"unbeadable-2e4f1.firebaseapp.com", projectId:"unbeadable-2e4f1", appId:"1:904715339138:web:0879a7b347805691d53b9b"};
 const app = initializeApp(firebaseConfig);
@@ -139,6 +145,9 @@ const adminEmail = document.getElementById("adminEmail");
 const adminPass = document.getElementById("adminPass");
 const ordersDiv = document.getElementById("orders");
 const tipModal = document.getElementById("tipModal");
+const extraModal = document.getElementById("extraModal");
+const extraYes = document.getElementById("extraYes");
+const extraNo = document.getElementById("extraNo");
 
 const products = [
 {name:"Normal Bracelet",price:0.75},{name:"Triple Normal",price:0.95},
@@ -146,106 +155,107 @@ const products = [
 {name:"Starburst",price:1.00},{name:"Hive",price:1.50},
 {name:"Dragon Scale",price:1.75},{name:"Ladder",price:1.85},
 {name:"Flower Power",price:1.00},{name:"Tropico",price:1.00},
-{name:"Rubber Bead",price:0.85},{name:"Taffy Twist",price:1.00}
+{name:"Rubber Bead",price:0.85},{name:"Taffy Twist",price:1.00},
+{name:"Random Color Bracelet",price:1.25},{name:"Mystery Bag Bracelet",price:1.50}
 ];
 
-const colors=["Red","Blue","Green","Yellow","Purple","Orange","Pink","Black","White","Cyan","Lime"];
-let cart=[], selectedBracelet="", selectedPrice=0, selectedColors=[], selectedTip=0;
+let colors=["Red","Blue","Green","Yellow","Purple","Orange","Pink","Black","White","Cyan","Lime"];
+let cart=[], selectedBracelet="", selectedPrice=0, selectedColors=[], pendingExtra=[];
 
 products.forEach(p=>{
   const c=document.createElement("div");
   c.className="card";
   c.innerHTML=`<h3>${p.name}</h3><div class="price">$${p.price.toFixed(2)}</div><button>Add</button>`;
-  c.querySelector("button").onclick=()=>openModal(p.name,p.price);
+  c.querySelector("button").onclick=()=> {
+    if(p.name==="Random Color Bracelet" || p.name==="Mystery Bag Bracelet"){
+      selectedBracelet=p.name; selectedPrice=p.price;
+      selectedColors=[];
+      for(let i=0;i<5;i++){
+        selectedColors.push(colors[Math.floor(Math.random()*colors.length)]);
+      }
+      cart.push({name:selectedBracelet, price:selectedPrice, colors:[...selectedColors]});
+      renderCart();
+      alert(`${p.name} added with 5 random colors!`);
+    } else {
+      openModal(p.name,p.price);
+    }
+  };
   shopGrid.appendChild(c);
 });
 
 const picker=document.getElementById("colorPicker");
-colors.forEach(c=>{
-  const d=document.createElement("div");
-  d.className="color-option"; 
-  d.style.background=c.toLowerCase();
-  d.onclick=()=>{
-    if(d.classList.contains("selected")){d.classList.remove("selected"); selectedColors=selectedColors.filter(x=>x!==c);}
-    else if(selectedColors.length<5){d.classList.add("selected"); selectedColors.push(c);}
-  };
-  picker.appendChild(d);
-});
+function renderColors(){
+  picker.innerHTML="";
+  colors.forEach(c=>{
+    const d=document.createElement("div");
+    d.className="color-option"; 
+    d.style.background=c.toLowerCase();
+    d.onclick=()=>{
+      if(selectedColors.includes(c)) return;
+      if(selectedColors.length<5){
+        selectedColors.push(c);
+        d.classList.add("selected");
+      } else {
+        pendingExtra.push(c);
+        extraModal.style.display="flex";
+      }
+    };
+    picker.appendChild(d);
+  });
+}
 
-function openModal(n,p){ selectedBracelet=n; selectedPrice=p; selectedColors=[]; document.querySelectorAll(".color-option").forEach(x=>x.classList.remove("selected")); colorModal.style.display="flex"; }
+function openModal(n,p){
+  selectedBracelet=n; selectedPrice=p; selectedColors=[]; pendingExtra=[];
+  document.querySelectorAll(".color-option").forEach(x=>x.classList.remove("selected"));
+  renderColors();
+  colorModal.style.display="flex";
+}
 closeModal.onclick=()=>colorModal.style.display="none";
-confirmColors.onclick=()=>{ if(!selectedColors.length) return alert("Pick colors"); cart.push({name:selectedBracelet,price:selectedPrice,colors:[...selectedColors]}); renderCart(); colorModal.style.display="none"; };
 
-function renderCart(){ items.innerHTML=""; let t=0; cart.forEach((x,i)=>{ items.innerHTML+=`<p><b>${x.name}</b> - $${x.price}<br>${x.colors.join(", ")}<button class="deleteBtn" onclick="removeFromCart(${i})">Remove</button></p>`; t+=x.price; }); total.innerText=t.toFixed(2);}
-window.removeFromCart = (index)=>{ cart.splice(index,1); renderCart(); };
+extraYes.onclick = ()=>{
+  selectedColors.push(...pendingExtra);
+  selectedPrice += 0.25 * pendingExtra.length;
+  pendingExtra=[];
+  renderCart();
+  extraModal.style.display="none";
+};
+extraNo.onclick = ()=>{ pendingExtra=[]; extraModal.style.display="none"; };
 
-checkout.onclick=()=>{
-  if(!document.getElementById("name").value || !cart.length) return alert("Missing info");
-  tipModal.style.display="flex";
+confirmColors.onclick=()=>{
+  if(!selectedColors.length) return alert("Pick colors");
+  cart.push({name:selectedBracelet, price:selectedPrice, colors:[...selectedColors]});
+  renderCart(); colorModal.style.display="none";
 };
 
+function renderCart(){
+  items.innerHTML=""; let t=0;
+  cart.forEach((x,i)=>{
+    items.innerHTML+=`<p><b>${x.name}</b> - $${x.price.toFixed(2)}<br>${x.colors.join(", ")}<button class="deleteBtn" onclick="removeFromCart(${i})">Remove</button></p>`;
+    t+=x.price;
+  });
+  total.innerText=t.toFixed(2);
+}
+window.removeFromCart=(index)=>{ cart.splice(index,1); renderCart(); };
+
+checkout.onclick=()=>{ if(!document.getElementById("name").value || !cart.length) return alert("Missing info"); tipModal.style.display="flex"; };
 tipModal.querySelectorAll("button").forEach(b=>{
-  b.onclick = async ()=>{
-    selectedTip=parseInt(b.dataset.tip);
+  b.onclick=async()=>{
+    let tip = parseInt(b.dataset.tip);
     tipModal.style.display="none";
-    let totalPrice = cart.reduce((s,i)=>s+i.price,0)+selectedTip;
     await addDoc(collection(db,"orders"),{
       name:document.getElementById("name").value,
       cart,
       status:"pending",
       rating:localStorage.getItem("rating") || null,
-      tip:selectedTip,
+      tip:tip,
       time:new Date()
     });
-    cart=[]; selectedTip=0; renderCart();
-    alert(`Order placed!${selectedTip>0?" Tip added: $"+selectedTip:""}`);
+    cart=[]; renderCart();
+    alert(`Order placed!${tip>0?" Tip added: $"+tip:""}`);
   };
 });
-
-adminLogin.onclick=()=>{ signInWithEmailAndPassword(auth, adminEmail.value, adminPass.value).catch(()=>alert("Login failed")); };
-
-onAuthStateChanged(auth, user=>{
-  if(!user) return;
-  const q=query(collection(db,"orders"),orderBy("time","desc"));
-  onSnapshot(q, snap=>{
-    ordersDiv.innerHTML="<h3>Orders</h3>";
-    snap.forEach(d=>{
-      const o=d.data();
-      const totalPrice=o.cart.reduce((s,i)=>s+i.price,0)+ (o.tip || 0);
-      const orderTime=new Date(o.time.seconds?o.time.seconds*1000:o.time).toLocaleString();
-      ordersDiv.innerHTML+=`<p><b>${o.name}</b> - $${totalPrice.toFixed(2)}<br><b>Status:</b> ${o.status==="done"?'<span class="doneBadge">DONE</span>':'<span class="pendingBadge">PENDING</span>'}<br><b>Rating:</b> ${o.rating?o.rating+"★":"Not rated"}<br>Tip: $${o.tip || 0}<br>Time: ${orderTime}<br>${o.cart.map(i=>i.name+" - "+i.colors.join(", ")).join("<br>")}${o.status!=="done"?`<button onclick="markDone('${d.id}')">Done</button>`:``}<button class="deleteBtn" onclick="deleteOrder('${d.id}')">Delete</button></p><hr>`; });
-  });
-});
-
-window.markDone=async(id)=>{ await updateDoc(doc(db,"orders",id),{status:"done"}); };
-window.deleteOrder=async(id)=>{ if(confirm("Delete this order?")) await deleteDoc(doc(db,"orders",id)); };
-
-onSnapshot(query(collection(db,"orders"),orderBy("time","desc")),snap=>{
-  myOrdersDiv.innerHTML="";
-  const customerName=document.getElementById("name").value;
-  if(!customerName) return;
-  snap.forEach(d=>{ const o=d.data(); if(o.name!==customerName) return; myOrdersDiv.innerHTML+=`<p><b>${o.cart.map(i=>i.name).join(", ")}</b><br>Status: ${o.status==="done"?'<span class="doneBadge">DONE</span>':'<span class="pendingBadge">PENDING</span>'}<br>Rating: ${o.rating?o.rating+"★":"Not rated"}<br>Tip: $${o.tip||0}</p><hr>`; });
-});
-
-const ratingBarsDiv = document.getElementById("ratingBars");
-const avgRatingDiv = document.getElementById("avgRating");
-const ratingGraphPanel = document.getElementById("ratingGraphPanel");
-const toggleRatingBtn = document.getElementById("toggleRatingGraph");
-toggleRatingBtn.onclick = () => { ratingGraphPanel.style.display = ratingGraphPanel.style.display==="none"?"block":"none"; };
-
-function renderRatingGraph(snapshot){
-  const ratings=[0,0,0,0,0];
-  let totalRatings=0,sumRatings=0;
-  snapshot.forEach(d=>{ const o=d.data(); if(o.rating){ const r=parseInt(o.rating); ratings[r-1]++; totalRatings++; sumRatings+=r;}});
-  const avg=totalRatings?(sumRatings/totalRatings).toFixed(1):0;
-  avgRatingDiv.innerText=`Average: ${avg} ★`;
-  const maxCount=Math.max(...ratings,1);
-  ratingBarsDiv.innerHTML="";
-  for(let i=5;i>=1;i--){ const container=document.createElement("div"); container.className="barContainer"; container.innerHTML=`<div class="barLabel">${i}</div><div class="barBg"><div class="bar" style="width:${(ratings[i-1]/maxCount)*100}%"></div></div><div class="barCount">${ratings[i-1]}</div>`; ratingBarsDiv.appendChild(container);}
-}
-
-onSnapshot(query(collection(db,"orders")), snap=>{ renderRatingGraph(snap); });
 </script>
 
 </body>
 </html>
+
