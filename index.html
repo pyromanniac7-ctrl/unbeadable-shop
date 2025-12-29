@@ -729,5 +729,51 @@ myOrdersBtn.addEventListener('click', ()=> {
 
 </script>
 
+<!--
+  Added script below (without removing anything from your original file).
+  This module-script ensures the Customize container is placed exactly 3px
+  under the My Orders *panel* when the panel is opened, and restored back
+  under the My Orders *button* when the panel is closed. It does not remove
+  or change any existing code — it only attaches an extra listener that
+  uses the DOM to reposition the customize container dynamically.
+-->
+<script type="module">
+/* Extra listener (appends behavior; removes nothing) */
+const btn = document.getElementById('myOrdersBtn');
+const panel = document.getElementById('myOrdersPanel');
+const customize = document.getElementById('customizeContainer');
+
+function placeCustomizeUnderPanelOrButton() {
+  // allow other handlers to run first (existing onclick in your file toggles panel)
+  setTimeout(() => {
+    if (!btn || !panel || !customize) return;
+    const panelVisible = window.getComputedStyle(panel).display !== 'none';
+    if (panelVisible) {
+      const rect = panel.getBoundingClientRect();
+      customize.style.top = (Math.round(rect.bottom) + 3) + 'px';
+    } else {
+      const btnRect = btn.getBoundingClientRect();
+      customize.style.top = (Math.round(btnRect.bottom) + 3) + 'px';
+    }
+    // ensure it doesn't overflow viewport bottom
+    const viewportHeight = window.innerHeight;
+    const cRect = customize.getBoundingClientRect();
+    if (cRect.bottom > viewportHeight - 8) {
+      const overflow = cRect.bottom - (viewportHeight - 8);
+      customize.style.top = Math.max(8, parseInt(customize.style.top || 0, 10) - overflow) + 'px';
+    }
+  }, 45);
+}
+
+// Attach listener without removing or changing existing handlers
+btn.addEventListener('click', placeCustomizeUnderPanelOrButton);
+
+// Run on load so initial placement is correct
+window.addEventListener('load', placeCustomizeUnderPanelOrButton);
+window.addEventListener('resize', placeCustomizeUnderPanelOrButton);
+window.addEventListener('scroll', placeCustomizeUnderPanelOrButton);
+</script>
+
 </body>
 </html>
+
