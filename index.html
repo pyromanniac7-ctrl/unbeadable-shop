@@ -63,7 +63,7 @@ button:hover { background:#6d28d9; }
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { 
-  getFirestore, collection, addDoc, getDocs, query, orderBy,
+  getFirestore, collection, addDoc, query, orderBy,
   onSnapshot, deleteDoc, doc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -103,7 +103,7 @@ const products = [
 {name:"Rubber Bead",price:0.85},{name:"Taffy Twist",price:1.00}
 ];
 
-const colors=["Red","Blue","Green","Yellow","Purple","Orange","Pink","Black","White","Cyan","Lime"];
+const colors=["Red","Blue","Green","Yellow","Purple","Orange","Pink","Black","White","Brown","Cyan","Lime"];
 
 /* 🔥 STATE */
 let cart=[], selectedBracelet="", selectedPrice=0, selectedColors=[];
@@ -148,15 +148,27 @@ confirmColors.onclick=()=>{
   renderCart(); colorModal.style.display="none";
 };
 
-/* 🔥 RENDER CART */
+/* 🔥 RENDER CART (ADDED REMOVE BUTTON) */
 function renderCart(){
   items.innerHTML=""; let t=0;
-  cart.forEach(x=>{
-    items.innerHTML+=`<p><b>${x.name}</b> - $${x.price}<br>${x.colors.join(", ")}</p>`;
+  cart.forEach((x,i)=>{
+    items.innerHTML+=`
+      <p>
+        <b>${x.name}</b> - $${x.price}<br>
+        ${x.colors.join(", ")}
+        <button class="deleteBtn" onclick="removeFromCart(${i})">Remove</button>
+      </p>
+    `;
     t+=x.price;
   });
   total.innerText=t.toFixed(2);
 }
+
+/* 🔥 REMOVE FROM CART */
+window.removeFromCart = (index)=>{
+  cart.splice(index,1);
+  renderCart();
+};
 
 /* 🔥 CHECKOUT */
 checkout.onclick=async()=>{
@@ -178,8 +190,6 @@ adminLogin.onclick=()=>{
 /* 🔥 REAL-TIME ORDERS + DELETE */
 onAuthStateChanged(auth, user=>{
   if(!user) return;
-  ordersDiv.innerHTML="<h3>Orders</h3>";
-
   const q=query(collection(db,"orders"),orderBy("time","desc"));
 
   onSnapshot(q, snap=>{
@@ -188,22 +198,20 @@ onAuthStateChanged(auth, user=>{
       const o=d.data();
       const totalPrice=o.cart.reduce((s,i)=>s+i.price,0);
       const orderTime=new Date(o.time.seconds?o.time.seconds*1000:o.time).toLocaleString();
-
       ordersDiv.innerHTML+=`
         <p>
           <b>${o.name}</b> - $${totalPrice.toFixed(2)}<br>
           Time: ${orderTime}<br>
           ${o.cart.map(i=>i.name+" - "+i.colors.join(", ")).join("<br>")}
           <button class="deleteBtn" onclick="deleteOrder('${d.id}')">Delete</button>
-        </p>
-        <hr>
+        </p><hr>
       `;
     });
   });
 });
 
-/* 🔥 DELETE FUNCTION */
-window.deleteOrder=async(id)=>{
+/* 🔥 DELETE ORDER */
+window.deleteOrder = async(id)=>{
   if(confirm("Delete this order?")){
     await deleteDoc(doc(db,"orders",id));
   }
@@ -212,3 +220,4 @@ window.deleteOrder=async(id)=>{
 
 </body>
 </html>
+
