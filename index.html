@@ -19,6 +19,8 @@ button:hover { background:#6d28d9; }
 .color-picker { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
 .color-option { width:30px; height:30px; border-radius:50%; cursor:pointer; border:2px solid #ccc; }
 .color-option.selected { border:3px solid #7c3aed; }
+.deleteBtn { background:#dc2626; margin-top:8px; }
+.deleteBtn:hover { background:#b91c1c; }
 </style>
 </head>
 <body>
@@ -60,7 +62,10 @@ button:hover { background:#6d28d9; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { 
+  getFirestore, collection, addDoc, getDocs, query, orderBy,
+  onSnapshot, deleteDoc, doc
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 /* 🔥 FIREBASE CONFIG */
@@ -170,21 +175,40 @@ adminLogin.onclick=()=>{
   .catch(()=>alert("Login failed"));
 };
 
-/* 🔥 DISPLAY ORDERS */
-onAuthStateChanged(auth, async user=>{
+/* 🔥 REAL-TIME ORDERS + DELETE */
+onAuthStateChanged(auth, user=>{
   if(!user) return;
   ordersDiv.innerHTML="<h3>Orders</h3>";
+
   const q=query(collection(db,"orders"),orderBy("time","desc"));
-  const snap=await getDocs(q);
-  snap.forEach(d=>{
-    const o=d.data();
-    const totalPrice = o.cart.reduce((s,i)=>s+i.price,0);
-    const orderTime = new Date(o.time.seconds ? o.time.seconds*1000 : o.time).toLocaleString();
-    ordersDiv.innerHTML+=`<p><b>${o.name}</b> - $${totalPrice.toFixed(2)}<br>Time: ${orderTime}<br>${o.cart.map(i=>i.name+" - "+i.colors.join(", ")).join("<br>")}</p><hr>`;
+
+  onSnapshot(q, snap=>{
+    ordersDiv.innerHTML="<h3>Orders</h3>";
+    snap.forEach(d=>{
+      const o=d.data();
+      const totalPrice=o.cart.reduce((s,i)=>s+i.price,0);
+      const orderTime=new Date(o.time.seconds?o.time.seconds*1000:o.time).toLocaleString();
+
+      ordersDiv.innerHTML+=`
+        <p>
+          <b>${o.name}</b> - $${totalPrice.toFixed(2)}<br>
+          Time: ${orderTime}<br>
+          ${o.cart.map(i=>i.name+" - "+i.colors.join(", ")).join("<br>")}
+          <button class="deleteBtn" onclick="deleteOrder('${d.id}')">Delete</button>
+        </p>
+        <hr>
+      `;
+    });
   });
 });
+
+/* 🔥 DELETE FUNCTION */
+window.deleteOrder=async(id)=>{
+  if(confirm("Delete this order?")){
+    await deleteDoc(doc(db,"orders",id));
+  }
+};
 </script>
 
 </body>
 </html>
-
