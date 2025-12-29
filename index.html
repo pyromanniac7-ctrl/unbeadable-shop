@@ -58,6 +58,25 @@ button:hover { background:#6d28d9; }
   margin:0 auto 10px;
   box-shadow:0 6px 18px rgba(0,0,0,0.12);
 }
+
+/* ADDED: customization overrides using CSS variables - these are additional rules (do not remove anything) */
+:root {
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+}
+
+/* override only the GUI (not white areas) to reflect selected accent */
+header { background: var(--accent) !important; }
+.price { color: var(--accent) !important; }
+button { background: var(--accent) !important; color: white !important; }
+button:hover { background: var(--accent-hover) !important; }
+#toggleRatingGraph { background: var(--accent) !important; }
+#toggleRatingGraph:hover { background: var(--accent-hover) !important; }
+.bar { background: var(--accent) !important; }
+.adminOrderBtn { background: var(--accent) !important; }
+.adminOrderBtn:hover { background: var(--accent-hover) !important; }
+
+/* keep white backgrounds untouched - we only change accent colors */
 </style>
 </head>
 <body>
@@ -79,7 +98,23 @@ button:hover { background:#6d28d9; }
 
 <button id="toggleRatingGraph">Ratings</button>
 <button id="myOrdersBtn">My Orders</button>
-<div id="myOrdersPanel"><h3>My Orders</h3><div id="myOrders"></div></div>
+<div id="myOrdersPanel">
+  <h3>My Orders</h3>
+  <div id="myOrders"></div>
+
+  <!-- CUSTOMIZE TOGGLE (added under My Orders, nothing removed) -->
+  <div style="margin-top:10px; text-align:center;">
+    <button id="customizeToggle" style="width:auto; padding:8px 12px; border-radius:8px;">Customize</button>
+  </div>
+
+  <!-- Color picker panel for customization (hidden until Customize pressed) -->
+  <div id="customizePanel" style="display:none; margin-top:12px;">
+    <p style="margin:6px 0 8px 0; font-weight:bold;">Pick an accent color (can't choose white)</p>
+    <div id="customizePicker" class="color-picker"></div>
+    <div style="margin-top:8px; text-align:center; font-size:12px; color:#555;">Changes apply instantly. White is intentionally not available.</div>
+  </div>
+
+</div>
 
 <header>
 <h1>Unbeadable</h1>
@@ -189,6 +224,11 @@ const deleteYes = document.getElementById("deleteYes");
 const deleteNo = document.getElementById("deleteNo");
 let orderToDeleteId = null;
 
+// Customize elements (added)
+const customizeToggle = document.getElementById("customizeToggle");
+const customizePanel = document.getElementById("customizePanel");
+const customizePicker = document.getElementById("customizePicker");
+
 // --- State ---
 let colors = ["Red","Blue","Green","Yellow","Purple","Orange","Pink","Black","White","Cyan","Lime"];
 let cart=[], selectedBracelet="", selectedPrice=0, selectedColors=[], pendingExtra=[];
@@ -251,7 +291,7 @@ const products = [
 {name:"Random Color Bracelet",price:1.25},{name:"Mystery Bag Bracelet",price:1.50}
 ];
 
-// --- ADDED: Bracelet images map (uses Unsplash dynamic queries) ---
+// --- ADDED: Bracelet images map (uses Imgur links you provided) ---
 const braceletImages = {
   "Normal Bracelet": "https://i.imgur.com/4ru5gNK.jpeg",
   "Triple Normal": "https://i.imgur.com/U6lh2t2.jpeg",
@@ -301,7 +341,7 @@ function renderCart(){
 }
 window.removeFromCart = (i)=>{ cart.splice(i,1); renderCart(); };
 
-// --- Add Products: now include <img> above product name (images added, nothing removed) ---
+// --- Add Products: include <img> above product name (images added, nothing removed) ---
 products.forEach(p=>{
   const c = document.createElement("div"); c.className="card";
   const imgSrc = braceletImages[p.name] || "https://source.unsplash.com/400x400/?rainbow+loom+bracelet";
@@ -514,6 +554,107 @@ toggleRatingGraph.onclick = async ()=>{
   const panel = document.getElementById("ratingGraphPanel");
   panel.style.display = panel.style.display==="block"?"none":"block";
 };
+
+/* ----------------------------
+   CUSTOMIZE PANEL LOGIC (ADDED)
+   - Adds color swatches under "My Orders" when Customize is clicked
+   - Selecting a color updates CSS variables to change the GUI accent
+   - White is intentionally excluded
+   - Accent choice is saved to localStorage and applied on load
+   ---------------------------- */
+
+// Palette for GUI customization (no white)
+const customizeColors = [
+  "#7c3aed", // original purple
+  "#ef4444", // red
+  "#10b981", // green
+  "#f59e0b", // amber
+  "#0ea5e9", // blue
+  "#ec4899", // pink
+  "#6366f1", // indigo
+  "#f97316", // orange
+  "#14b8a6", // teal
+  "#111827"  // near-black (not white)
+];
+
+// utility: darken/lighten hex by percent (negative = darker)
+function shadeHex(hex, percent){
+  // hex like #rrggbb
+  const num = parseInt(hex.slice(1),16);
+  let r = (num >> 16) + Math.round(2.55 * percent);
+  let g = (num >> 8 & 0x00FF) + Math.round(2.55 * percent);
+  let b = (num & 0x0000FF) + Math.round(2.55 * percent);
+  r = Math.max(0, Math.min(255, r));
+  g = Math.max(0, Math.min(255, g));
+  b = Math.max(0, Math.min(255, b));
+  return "#" + ( (1 << 24) + (r << 16) + (g << 8) + b ).toString(16).slice(1);
+}
+
+// build customize swatches
+function buildCustomizePicker(){
+  customizePicker.innerHTML = "";
+  customizeColors.forEach(color => {
+    const d = document.createElement('div');
+    d.className = "color-option";
+    d.style.background = color;
+    d.title = color;
+    d.onclick = () => {
+      applyAccentColor(color);
+      // highlight selection visually in picker
+      customizePicker.querySelectorAll('.color-option').forEach(e=>e.classList.remove('selected'));
+      d.classList.add('selected');
+    };
+    customizePicker.appendChild(d);
+  });
+}
+
+// apply accent color across GUI by updating CSS variables and saving preference
+function applyAccentColor(hex){
+  // save
+  localStorage.setItem('unbeadable_accent', hex);
+  // compute hover color a bit darker
+  const hover = shadeHex(hex, -10);
+  document.documentElement.style.setProperty('--accent', hex);
+  document.documentElement.style.setProperty('--accent-hover', hover);
+  // also update selected borders for pickers that used .selected default color
+  // update any .color-option.selected border color if needed (not strictly required)
+}
+
+// read saved accent and apply
+const savedAccent = localStorage.getItem('unbeadable_accent');
+if(savedAccent){
+  applyAccentColor(savedAccent);
+  // also mark picker selected later after build
+}
+
+// hook up toggle behavior
+customizeToggle.onclick = () => {
+  customizePanel.style.display = customizePanel.style.display === "block" ? "none" : "block";
+  // on first open, build picker (idempotent)
+  if(customizePicker.children.length === 0) {
+    buildCustomizePicker();
+    // if saved accent exists, mark selected
+    const saved = localStorage.getItem('unbeadable_accent');
+    if(saved){
+      customizePicker.querySelectorAll('.color-option').forEach(el=>{
+        if(el.style.background.toLowerCase() === saved.toLowerCase()) el.classList.add('selected');
+      });
+    }
+  }
+};
+
+// build initial customize picker invisibly (optional)
+buildCustomizePicker();
+
+// ensure the header/button/etc use the current variable values on load (already applied by CSS variable)
+if(!savedAccent){
+  // default remains original purple already set in :root
+}
+
+/* ----------------------------
+   END CUSTOMIZE LOGIC
+   ---------------------------- */
+
 </script>
 
 </body>
