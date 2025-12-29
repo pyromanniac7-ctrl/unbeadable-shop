@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+=<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -29,13 +29,13 @@ button:hover { background:#6d28d9; }
 #myOrdersPanel { position:fixed; top:60px; right:15px; background:white; padding:15px; border-radius:12px; width:300px; max-height:70vh; overflow:auto; display:none; box-shadow:0 10px 25px rgba(0,0,0,.2); }
 
 /* ⭐ RATING SYSTEM */
-#ratingBox { position: fixed; top:15px; right:140px; background:white; padding:8px 12px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.15); display:flex; align-items:center; gap:6px; }
+#ratingBox { position: fixed; top:15px; right:140px; background:white; padding:8px 12px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.15); display:flex; align-items:center; gap:6px; z-index:1000; }
 .star { font-size:20px; cursor:pointer; color:#d1d5db; }
 .star.active { color:#facc15; }
 .star.locked { cursor:default; }
 
 /* 📊 RATING GRAPH */
-#ratingGraphPanel { position: fixed; top:15px; right:280px; background:white; padding:12px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.15); width:200px; }
+#ratingGraphPanel { position: fixed; top:60px; right:280px; background:white; padding:12px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.15); width:200px; z-index:1000; }
 #ratingGraphPanel h4 { margin:0 0 8px 0; font-size:14px; text-align:center; }
 .barContainer { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
 .barLabel { width:15px; font-size:12px; text-align:right; }
@@ -43,6 +43,10 @@ button:hover { background:#6d28d9; }
 .barBg { background:#e5e7eb; flex:1; height:12px; border-radius:6px; }
 .barCount { font-size:12px; width:20px; text-align:left; }
 .avgRating { text-align:center; font-weight:bold; margin-bottom:6px; font-size:14px; }
+
+/* 🔘 TOGGLE BUTTON */
+#toggleRatingGraph { position: fixed; top:15px; right:500px; padding:8px 12px; border-radius:12px; border:none; background:#7c3aed; color:white; cursor:pointer; z-index:1000; }
+#toggleRatingGraph:hover { background:#6d28d9; }
 </style>
 </head>
 <body>
@@ -61,6 +65,9 @@ button:hover { background:#6d28d9; }
   <div class="avgRating" id="avgRating">Average: 0 ★</div>
   <div id="ratingBars"></div>
 </div>
+
+<!-- 🔘 TOGGLE BUTTON -->
+<button id="toggleRatingGraph">Toggle Ratings</button>
 
 <button id="myOrdersBtn">My Orders</button>
 
@@ -126,9 +133,7 @@ const myOrdersBtn=document.getElementById("myOrdersBtn");
 const myOrdersPanel=document.getElementById("myOrdersPanel");
 const myOrdersDiv=document.getElementById("myOrders");
 
-myOrdersBtn.onclick=()=>{
-  myOrdersPanel.style.display = myOrdersPanel.style.display==="block" ? "none" : "block";
-};
+myOrdersBtn.onclick=()=>{ myOrdersPanel.style.display = myOrdersPanel.style.display==="block" ? "none" : "block"; };
 
 /* 🔥 5-STAR RATING SYSTEM */
 const stars = document.querySelectorAll(".star");
@@ -301,12 +306,18 @@ onSnapshot(query(collection(db,"orders"),orderBy("time","desc")),snap=>{
   });
 });
 
-/* 🔥 RATING GRAPH (APPLE STYLE) */
+/* 🔥 RATING GRAPH (APPLE STYLE LIVE) */
 const ratingBarsDiv = document.getElementById("ratingBars");
 const avgRatingDiv = document.getElementById("avgRating");
+const ratingGraphPanel = document.getElementById("ratingGraphPanel");
+const toggleRatingBtn = document.getElementById("toggleRatingGraph");
+
+toggleRatingBtn.onclick = () => {
+  ratingGraphPanel.style.display = ratingGraphPanel.style.display === "none" ? "block" : "none";
+};
 
 function renderRatingGraph(snapshot){
-  const ratings = [0,0,0,0,0]; // 1-5 stars
+  const ratings = [0,0,0,0,0];
   let totalRatings = 0, sumRatings = 0;
   snapshot.forEach(d=>{
     const o = d.data();
@@ -333,6 +344,7 @@ function renderRatingGraph(snapshot){
   }
 }
 
+/* 🔥 LIVE RATING GRAPH */
 onSnapshot(query(collection(db,"orders")), snap=>{
   renderRatingGraph(snap);
 });
