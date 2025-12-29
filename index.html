@@ -236,7 +236,7 @@ tipModal.querySelectorAll("button").forEach(b=>{
   };
 });
 
-// --- Real-time Admin Orders ---
+// --- Admin login ---
 let adminLoggedIn = false;
 adminLogin.onclick = async ()=>{
   try {
@@ -246,27 +246,20 @@ adminLogin.onclick = async ()=>{
   } catch(e){ alert("Admin login failed"); }
 };
 
-// --- Real-time updates for both Admin and My Orders ---
+// --- Real-time Orders ---
 onSnapshot(collection(db,"orders"), snapshot=>{
-  // Admin Panel
-  if(adminLoggedIn){
-    ordersDiv.innerHTML = "";
-    snapshot.forEach(doc=>{
-      const data = doc.data();
-      const totalPrice = data.cart.reduce((a,b)=>a+b.price,0).toFixed(2);
-      const itemsList = data.cart.map(c=>`${c.name} (${c.colors.join(", ")})`).join("<br>");
-      const time = new Date(data.time.seconds*1000).toLocaleString();
-      ordersDiv.innerHTML += `<p><b>${data.name}</b> - $${totalPrice} - Tip: $${data.tip} - <span class="${data.status==='done'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
-    });
-  }
-  // My Orders Panel
-  myOrdersDiv.innerHTML = "";
+  ordersDiv.innerHTML="";
+  myOrdersDiv.innerHTML="";
   snapshot.forEach(doc=>{
     const data = doc.data();
     const totalPrice = data.cart.reduce((a,b)=>a+b.price,0).toFixed(2);
     const itemsList = data.cart.map(c=>`${c.name} (${c.colors.join(", ")})`).join("<br>");
-    const time = new Date(data.time.seconds*1000).toLocaleString();
-    myOrdersDiv.innerHTML += `<p><b>${data.name}</b> - $${totalPrice} - Tip: $${data.tip} - <span class="${data.status==='done'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
+    const time = data.time && data.time.toDate ? data.time.toDate().toLocaleString() : new Date(data.time.seconds*1000).toLocaleString();
+    const orderHTML = `<p><b>${data.name}</b> - $${totalPrice} - Tip: $${data.tip} - <span class="${data.status==='done'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
+    // Admin sees all
+    if(adminLoggedIn) ordersDiv.innerHTML += orderHTML;
+    // My Orders sees all for now (can filter per user later)
+    myOrdersDiv.innerHTML += orderHTML;
   });
 });
 
@@ -277,15 +270,6 @@ myOrdersBtn.onclick = ()=>{ myOrdersPanel.style.display = myOrdersPanel.style.di
 toggleRatingGraph.onclick = async ()=>{
   const panel = document.getElementById("ratingGraphPanel");
   panel.style.display = panel.style.display==="block"?"none":"block";
-  if(panel.style.display==="block"){
-    const snapshot = await getDocs(query(collection(db,"orders")));
-    let counts=[0,0,0,0,0], sum=0, totalRatings=0;
-    snapshot.forEach(doc=>{ const r=parseInt(doc.data().rating); if(r>0){ counts[r-1]++; sum+=r; totalRatings++; } });
-    const avg = totalRatings ? (sum/totalRatings).toFixed(2) : 0;
-    document.getElementById("avgRating").innerText = `Average: ${avg} ★`;
-    const ratingBars = document.getElementById("ratingBars"); ratingBars.innerHTML="";
-    counts.reverse().forEach((c,i)=>{ ratingBars.innerHTML+=`<div class="barContainer"><span class="barLabel">${5-i}</span><div class="barBg"><div class="bar" style="width:${totalRatings?c/totalRatings*100:0}%"></div></div><span class="barCount">${c}</span></div>`; });
-  }
 };
 </script>
 
