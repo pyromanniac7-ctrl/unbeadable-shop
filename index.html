@@ -77,6 +77,31 @@ button:hover { background: var(--accent-hover) !important; }
 .adminOrderBtn:hover { background: var(--accent-hover) !important; }
 
 /* keep white backgrounds untouched - we only change accent colors */
+
+/* New: container for Customize placed under My Orders (positioned but non-destructive) */
+#customizeContainer{
+  position: fixed;
+  right: 15px;
+  /* place just under the My Orders panel (which is top:60px; max-height:70vh) */
+  top: calc(60px + 70vh + 10px);
+  width: 300px;
+  z-index: 1000;
+  text-align:center;
+  background: transparent; /* keep transparent so it doesn't block view */
+}
+#customizeContainer .inner {
+  background: white;
+  padding:10px;
+  border-radius:10px;
+  box-shadow:0 8px 20px rgba(0,0,0,0.12);
+}
+#customizeContainer p { margin:6px 0 8px 0; font-weight:bold; }
+#customizeContainer .info { margin-top:8px; font-size:12px; color:#555; }
+
+@media (max-width:700px){
+  /* on small screens move customize to left so it doesn't overlap */
+  #customizeContainer { right: 15px; top: auto; bottom: 15px; width: 260px; }
+}
 </style>
 </head>
 <body>
@@ -102,18 +127,23 @@ button:hover { background: var(--accent-hover) !important; }
   <h3>My Orders</h3>
   <div id="myOrders"></div>
 
-  <!-- CUSTOMIZE TOGGLE (added under My Orders, nothing removed) -->
-  <div style="margin-top:10px; text-align:center;">
-    <button id="customizeToggle" style="width:auto; padding:8px 12px; border-radius:8px;">Customize</button>
-  </div>
+  <!-- NOTE: customize controls were moved OUTSIDE this element per your request -->
+</div>
 
-  <!-- Color picker panel for customization (hidden until Customize pressed) -->
-  <div id="customizePanel" style="display:none; margin-top:12px;">
-    <p style="margin:6px 0 8px 0; font-weight:bold;">Pick an accent color (can't choose white)</p>
-    <div id="customizePicker" class="color-picker"></div>
-    <div style="margin-top:8px; text-align:center; font-size:12px; color:#555;">Changes apply instantly. White is intentionally not available.</div>
-  </div>
+<!-- CUSTOMIZE CONTAINER placed UNDER the My Orders panel (moved here) -->
+<div id="customizeContainer" aria-hidden="false">
+  <div class="inner">
+    <div style="margin-top:10px; text-align:center;">
+      <button id="customizeToggle" style="width:auto; padding:8px 12px; border-radius:8px;">Customize</button>
+    </div>
 
+    <!-- Color picker panel for customization (hidden until Customize pressed) -->
+    <div id="customizePanel" style="display:none; margin-top:12px;">
+      <p>Pick an accent color (can't choose white)</p>
+      <div id="customizePicker" class="color-picker"></div>
+      <div class="info">Changes apply instantly. White is intentionally not available.</div>
+    </div>
+  </div>
 </div>
 
 <header>
@@ -224,7 +254,7 @@ const deleteYes = document.getElementById("deleteYes");
 const deleteNo = document.getElementById("deleteNo");
 let orderToDeleteId = null;
 
-// Customize elements (added)
+// Customize elements (moved outside My Orders)
 const customizeToggle = document.getElementById("customizeToggle");
 const customizePanel = document.getElementById("customizePanel");
 const customizePicker = document.getElementById("customizePicker");
@@ -659,3 +689,4 @@ if(!savedAccent){
 
 </body>
 </html>
+
