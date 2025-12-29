@@ -1,4 +1,4 @@
-=<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -23,19 +23,13 @@ button:hover { background:#6d28d9; }
 .deleteBtn:hover { background:#b91c1c; }
 .doneBadge { color:green; font-weight:bold; }
 .pendingBadge { color:#ca8a04; font-weight:bold; }
-
-/* 🔥 CUSTOMER ORDERS */
 #myOrdersBtn { position:fixed; top:15px; right:15px; width:auto; padding:10px 14px; }
 #myOrdersPanel { position:fixed; top:60px; right:15px; background:white; padding:15px; border-radius:12px; width:300px; max-height:70vh; overflow:auto; display:none; box-shadow:0 10px 25px rgba(0,0,0,.2); }
-
-/* ⭐ RATING SYSTEM */
 #ratingBox { position: fixed; top:15px; right:140px; background:white; padding:8px 12px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.15); display:flex; align-items:center; gap:6px; z-index:1000; }
 .star { font-size:20px; cursor:pointer; color:#d1d5db; }
 .star.active { color:#facc15; }
 .star.locked { cursor:default; }
-
-/* 📊 RATING GRAPH */
-#ratingGraphPanel { position: fixed; top:60px; right:280px; background:white; padding:12px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.15); width:200px; z-index:1000; }
+#ratingGraphPanel { position: fixed; top:60px; right:280px; background:white; padding:12px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.15); width:200px; z-index:1000; display:none; }
 #ratingGraphPanel h4 { margin:0 0 8px 0; font-size:14px; text-align:center; }
 .barContainer { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
 .barLabel { width:15px; font-size:12px; text-align:right; }
@@ -43,15 +37,13 @@ button:hover { background:#6d28d9; }
 .barBg { background:#e5e7eb; flex:1; height:12px; border-radius:6px; }
 .barCount { font-size:12px; width:20px; text-align:left; }
 .avgRating { text-align:center; font-weight:bold; margin-bottom:6px; font-size:14px; }
-
-/* 🔘 TOGGLE BUTTON */
 #toggleRatingGraph { position: fixed; top:15px; right:500px; padding:8px 12px; border-radius:12px; border:none; background:#7c3aed; color:white; cursor:pointer; z-index:1000; }
 #toggleRatingGraph:hover { background:#6d28d9; }
+#tipModal .modal-content button { margin-top:8px; width:auto; padding:8px 12px; margin-right:6px; }
 </style>
 </head>
 <body>
 
-<!-- ⭐ RATING BOX -->
 <div id="ratingBox">
   <span class="star" data-star="1">★</span>
   <span class="star" data-star="2">★</span>
@@ -60,21 +52,15 @@ button:hover { background:#6d28d9; }
   <span class="star" data-star="5">★</span>
 </div>
 
-<!-- 📊 RATING GRAPH PANEL -->
 <div id="ratingGraphPanel">
   <div class="avgRating" id="avgRating">Average: 0 ★</div>
   <div id="ratingBars"></div>
 </div>
 
-<!-- 🔘 TOGGLE BUTTON -->
-<button id="toggleRatingGraph">Toggle Ratings</button>
+<button id="toggleRatingGraph">Ratings</button>
 
 <button id="myOrdersBtn">My Orders</button>
-
-<div id="myOrdersPanel">
-  <h3>My Orders</h3>
-  <div id="myOrders"></div>
-</div>
+<div id="myOrdersPanel"><h3>My Orders</h3><div id="myOrders"></div></div>
 
 <header>
 <h1>Unbeadable</h1>
@@ -111,45 +97,36 @@ button:hover { background:#6d28d9; }
 </div>
 </div>
 
+<div id="tipModal" class="modal">
+<div class="modal-content">
+<h3>Would you like to leave a tip?</h3>
+<button data-tip="1">$1</button>
+<button data-tip="2">$2</button>
+<button data-tip="3">$3</button>
+<button data-tip="0">Skip</button>
+</div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-/* 🔥 FIREBASE CONFIG */
-const firebaseConfig = {
-  apiKey: "AIzaSyAabIc-81hx89cRxMxiDuIYV7AXvc7Gdto",
-  authDomain: "unbeadable-2e4f1.firebaseapp.com",
-  projectId: "unbeadable-2e4f1",
-  appId: "1:904715339138:web:0879a7b347805691d53b9b"
-};
-
+const firebaseConfig = {apiKey:"AIzaSyAabIc-81hx89cRxMxiDuIYV7AXvc7Gdto", authDomain:"unbeadable-2e4f1.firebaseapp.com", projectId:"unbeadable-2e4f1", appId:"1:904715339138:web:0879a7b347805691d53b9b"};
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-/* 🔥 CUSTOMER ORDERS */
 const myOrdersBtn=document.getElementById("myOrdersBtn");
 const myOrdersPanel=document.getElementById("myOrdersPanel");
 const myOrdersDiv=document.getElementById("myOrders");
-
 myOrdersBtn.onclick=()=>{ myOrdersPanel.style.display = myOrdersPanel.style.display==="block" ? "none" : "block"; };
 
-/* 🔥 5-STAR RATING SYSTEM */
 const stars = document.querySelectorAll(".star");
 const savedRating = localStorage.getItem("rating");
 if (savedRating) stars.forEach(s => { if(s.dataset.star <= savedRating) s.classList.add("active"); s.classList.add("locked"); });
-stars.forEach(star => {
-  star.onclick = () => {
-    if (localStorage.getItem("rating")) return;
-    const rating = star.dataset.star;
-    localStorage.setItem("rating", rating);
-    stars.forEach(s => { if(s.dataset.star <= rating) s.classList.add("active"); s.classList.add("locked"); });
-    alert("Thanks for rating!");
-  };
-});
+stars.forEach(star => { star.onclick = () => { if(localStorage.getItem("rating")) return; const rating = star.dataset.star; localStorage.setItem("rating", rating); stars.forEach(s => { if(s.dataset.star <= rating) s.classList.add("active"); s.classList.add("locked"); }); alert("Thanks for rating!"); }; });
 
-/* 🔥 SHOP DATA */
 const shopGrid = document.getElementById("shopGrid");
 const colorModal = document.getElementById("colorModal");
 const closeModal = document.getElementById("closeModal");
@@ -161,6 +138,7 @@ const adminLogin = document.getElementById("adminLogin");
 const adminEmail = document.getElementById("adminEmail");
 const adminPass = document.getElementById("adminPass");
 const ordersDiv = document.getElementById("orders");
+const tipModal = document.getElementById("tipModal");
 
 const products = [
 {name:"Normal Bracelet",price:0.75},{name:"Triple Normal",price:0.95},
@@ -172,9 +150,8 @@ const products = [
 ];
 
 const colors=["Red","Blue","Green","Yellow","Purple","Orange","Pink","Black","White","Brown","Cyan","Lime"];
-let cart=[], selectedBracelet="", selectedPrice=0, selectedColors=[];
+let cart=[], selectedBracelet="", selectedPrice=0, selectedColors=[], selectedTip=0;
 
-/* 🔥 RENDER SHOP */
 products.forEach(p=>{
   const c=document.createElement("div");
   c.className="card";
@@ -183,74 +160,50 @@ products.forEach(p=>{
   shopGrid.appendChild(c);
 });
 
-/* 🔥 COLOR PICKER */
 const picker=document.getElementById("colorPicker");
 colors.forEach(c=>{
   const d=document.createElement("div");
   d.className="color-option"; 
   d.style.background=c.toLowerCase();
   d.onclick=()=>{
-    if(d.classList.contains("selected")){
-      d.classList.remove("selected");
-      selectedColors=selectedColors.filter(x=>x!==c);
-    } else if(selectedColors.length<5){
-      d.classList.add("selected");
-      selectedColors.push(c);
-    }
+    if(d.classList.contains("selected")){d.classList.remove("selected"); selectedColors=selectedColors.filter(x=>x!==c);}
+    else if(selectedColors.length<5){d.classList.add("selected"); selectedColors.push(c);}
   };
   picker.appendChild(d);
 });
 
-/* 🔥 MODAL FUNCTIONS */
-function openModal(n,p){
-  selectedBracelet=n; selectedPrice=p; selectedColors=[];
-  document.querySelectorAll(".color-option").forEach(x=>x.classList.remove("selected"));
-  colorModal.style.display="flex";
-}
+function openModal(n,p){ selectedBracelet=n; selectedPrice=p; selectedColors=[]; document.querySelectorAll(".color-option").forEach(x=>x.classList.remove("selected")); colorModal.style.display="flex"; }
 closeModal.onclick=()=>colorModal.style.display="none";
-confirmColors.onclick=()=>{
-  if(!selectedColors.length) return alert("Pick colors");
-  cart.push({name:selectedBracelet,price:selectedPrice,colors:[...selectedColors]});
-  renderCart(); colorModal.style.display="none";
-};
+confirmColors.onclick=()=>{ if(!selectedColors.length) return alert("Pick colors"); cart.push({name:selectedBracelet,price:selectedPrice,colors:[...selectedColors]}); renderCart(); colorModal.style.display="none"; };
 
-/* 🔥 CART FUNCTIONS */
-function renderCart(){
-  items.innerHTML=""; let t=0;
-  cart.forEach((x,i)=>{
-    items.innerHTML+=`
-      <p>
-        <b>${x.name}</b> - $${x.price}<br>
-        ${x.colors.join(", ")}
-        <button class="deleteBtn" onclick="removeFromCart(${i})">Remove</button>
-      </p>
-    `;
-    t+=x.price;
-  });
-  total.innerText=t.toFixed(2);
-}
+function renderCart(){ items.innerHTML=""; let t=0; cart.forEach((x,i)=>{ items.innerHTML+=`<p><b>${x.name}</b> - $${x.price}<br>${x.colors.join(", ")}<button class="deleteBtn" onclick="removeFromCart(${i})">Remove</button></p>`; t+=x.price; }); total.innerText=t.toFixed(2);}
 window.removeFromCart = (index)=>{ cart.splice(index,1); renderCart(); };
 
-/* 🔥 CHECKOUT WITH STATUS */
-checkout.onclick=async()=>{
+checkout.onclick=()=>{
   if(!document.getElementById("name").value || !cart.length) return alert("Missing info");
-  await addDoc(collection(db,"orders"),{
-    name:document.getElementById("name").value,
-    cart,
-    status: "pending",
-    rating: localStorage.getItem("rating") || null,
-    time:new Date()
-  });
-  cart=[]; renderCart(); alert("Order placed!");
+  tipModal.style.display="flex";
 };
 
-/* 🔥 ADMIN LOGIN */
-adminLogin.onclick=()=>{
-  signInWithEmailAndPassword(auth, adminEmail.value, adminPass.value)
-  .catch(()=>alert("Login failed"));
-};
+tipModal.querySelectorAll("button").forEach(b=>{
+  b.onclick = async ()=>{
+    selectedTip=parseInt(b.dataset.tip);
+    tipModal.style.display="none";
+    let totalPrice = cart.reduce((s,i)=>s+i.price,0)+selectedTip;
+    await addDoc(collection(db,"orders"),{
+      name:document.getElementById("name").value,
+      cart,
+      status:"pending",
+      rating:localStorage.getItem("rating") || null,
+      tip:selectedTip,
+      time:new Date()
+    });
+    cart=[]; selectedTip=0; renderCart();
+    alert(`Order placed!${selectedTip>0?" Tip added: $"+selectedTip:""}`);
+  };
+});
 
-/* 🔥 REAL-TIME ORDERS + DELETE + MARK DONE + SHOW RATINGS */
+adminLogin.onclick=()=>{ signInWithEmailAndPassword(auth, adminEmail.value, adminPass.value).catch(()=>alert("Login failed")); };
+
 onAuthStateChanged(auth, user=>{
   if(!user) return;
   const q=query(collection(db,"orders"),orderBy("time","desc"));
@@ -258,98 +211,41 @@ onAuthStateChanged(auth, user=>{
     ordersDiv.innerHTML="<h3>Orders</h3>";
     snap.forEach(d=>{
       const o=d.data();
-      const totalPrice=o.cart.reduce((s,i)=>s+i.price,0);
+      const totalPrice=o.cart.reduce((s,i)=>s+i.price,0)+ (o.tip || 0);
       const orderTime=new Date(o.time.seconds?o.time.seconds*1000:o.time).toLocaleString();
-
-      ordersDiv.innerHTML+=`
-        <p>
-          <b>${o.name}</b> - $${totalPrice.toFixed(2)}<br>
-          <b>Status:</b> ${o.status==="done"?'<span class="doneBadge">DONE</span>':'<span class="pendingBadge">PENDING</span>'}<br>
-          <b>Rating:</b> ${o.rating?o.rating+"★":"Not rated"}<br>
-          Time: ${orderTime}<br>
-          ${o.cart.map(i=>i.name+" - "+i.colors.join(", ")).join("<br>")}
-          ${o.status!=="done"?`<button onclick="markDone('${d.id}')">Done</button>`:``}
-          <button class="deleteBtn" onclick="deleteOrder('${d.id}')">Delete</button>
-        </p><hr>
-      `;
-    });
+      ordersDiv.innerHTML+=`<p><b>${o.name}</b> - $${totalPrice.toFixed(2)}<br><b>Status:</b> ${o.status==="done"?'<span class="doneBadge">DONE</span>':'<span class="pendingBadge">PENDING</span>'}<br><b>Rating:</b> ${o.rating?o.rating+"★":"Not rated"}<br>Tip: $${o.tip || 0}<br>Time: ${orderTime}<br>${o.cart.map(i=>i.name+" - "+i.colors.join(", ")).join("<br>")}${o.status!=="done"?`<button onclick="markDone('${d.id}')">Done</button>`:``}<button class="deleteBtn" onclick="deleteOrder('${d.id}')">Delete</button></p><hr>`; });
   });
 });
 
-/* 🔥 MARK DONE */
-window.markDone = async(id)=>{ await updateDoc(doc(db,"orders",id),{ status:"done" }); };
+window.markDone=async(id)=>{ await updateDoc(doc(db,"orders",id),{status:"done"}); };
+window.deleteOrder=async(id)=>{ if(confirm("Delete this order?")) await deleteDoc(doc(db,"orders",id)); };
 
-/* 🔥 DELETE ORDER */
-window.deleteOrder = async(id)=>{
-  if(confirm("Delete this order?")){
-    await deleteDoc(doc(db,"orders",id));
-  }
-};
-
-/* 🔥 CUSTOMER ORDERS LIST */
 onSnapshot(query(collection(db,"orders"),orderBy("time","desc")),snap=>{
   myOrdersDiv.innerHTML="";
   const customerName=document.getElementById("name").value;
   if(!customerName) return;
-
-  snap.forEach(d=>{
-    const o=d.data();
-    if(o.name!==customerName) return;
-
-    myOrdersDiv.innerHTML+=`
-      <p>
-        <b>${o.cart.map(i=>i.name).join(", ")}</b><br>
-        Status: ${o.status==="done"?'<span class="doneBadge">DONE</span>':'<span class="pendingBadge">PENDING</span>'}<br>
-        Rating: ${o.rating?o.rating+"★":"Not rated"}
-      </p><hr>
-    `;
-  });
+  snap.forEach(d=>{ const o=d.data(); if(o.name!==customerName) return; myOrdersDiv.innerHTML+=`<p><b>${o.cart.map(i=>i.name).join(", ")}</b><br>Status: ${o.status==="done"?'<span class="doneBadge">DONE</span>':'<span class="pendingBadge">PENDING</span>'}<br>Rating: ${o.rating?o.rating+"★":"Not rated"}<br>Tip: $${o.tip||0}</p><hr>`; });
 });
 
-/* 🔥 RATING GRAPH (APPLE STYLE LIVE) */
 const ratingBarsDiv = document.getElementById("ratingBars");
 const avgRatingDiv = document.getElementById("avgRating");
 const ratingGraphPanel = document.getElementById("ratingGraphPanel");
 const toggleRatingBtn = document.getElementById("toggleRatingGraph");
-
-toggleRatingBtn.onclick = () => {
-  ratingGraphPanel.style.display = ratingGraphPanel.style.display === "none" ? "block" : "none";
-};
+toggleRatingBtn.onclick = () => { ratingGraphPanel.style.display = ratingGraphPanel.style.display==="none"?"block":"none"; };
 
 function renderRatingGraph(snapshot){
-  const ratings = [0,0,0,0,0];
-  let totalRatings = 0, sumRatings = 0;
-  snapshot.forEach(d=>{
-    const o = d.data();
-    if(o.rating){
-      const r = parseInt(o.rating);
-      ratings[r-1]++;
-      totalRatings++;
-      sumRatings+=r;
-    }
-  });
-  const avg = totalRatings ? (sumRatings/totalRatings).toFixed(1) : 0;
-  avgRatingDiv.innerText = `Average: ${avg} ★`;
-  const maxCount = Math.max(...ratings,1);
+  const ratings=[0,0,0,0,0];
+  let totalRatings=0,sumRatings=0;
+  snapshot.forEach(d=>{ const o=d.data(); if(o.rating){ const r=parseInt(o.rating); ratings[r-1]++; totalRatings++; sumRatings+=r;}});
+  const avg=totalRatings?(sumRatings/totalRatings).toFixed(1):0;
+  avgRatingDiv.innerText=`Average: ${avg} ★`;
+  const maxCount=Math.max(...ratings,1);
   ratingBarsDiv.innerHTML="";
-  for(let i=5;i>=1;i--){
-    const container = document.createElement("div");
-    container.className="barContainer";
-    container.innerHTML=`
-      <div class="barLabel">${i}</div>
-      <div class="barBg"><div class="bar" style="width:${(ratings[i-1]/maxCount)*100}%"></div></div>
-      <div class="barCount">${ratings[i-1]}</div>
-    `;
-    ratingBarsDiv.appendChild(container);
-  }
+  for(let i=5;i>=1;i--){ const container=document.createElement("div"); container.className="barContainer"; container.innerHTML=`<div class="barLabel">${i}</div><div class="barBg"><div class="bar" style="width:${(ratings[i-1]/maxCount)*100}%"></div></div><div class="barCount">${ratings[i-1]}</div>`; ratingBarsDiv.appendChild(container);}
 }
 
-/* 🔥 LIVE RATING GRAPH */
-onSnapshot(query(collection(db,"orders")), snap=>{
-  renderRatingGraph(snap);
-});
+onSnapshot(query(collection(db,"orders")), snap=>{ renderRatingGraph(snap); });
 </script>
 
 </body>
 </html>
-
