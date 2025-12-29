@@ -338,6 +338,58 @@ if (savedRating) {
 }
 
 /* ----------------------------
+   LOCAL ORDER MIRROR (ADDITIVE)
+   - local orders saved to localStorage so My Orders displays orders placed
+     from this browser immediately, even if Firestore read is restricted.
+   - stored under key 'unbeadable_localOrders'
+   ---------------------------- */
+const LS_LOCAL_ORDERS = 'unbeadable_localOrders';
+function readLocalOrders(){
+  try { const raw = localStorage.getItem(LS_LOCAL_ORDERS); return raw ? JSON.parse(raw) : []; } catch(e){ return []; }
+}
+function writeLocalOrders(arr){
+  try { localStorage.setItem(LS_LOCAL_ORDERS, JSON.stringify(arr)); } catch(e){ console.warn("writeLocalOrders failed", e); }
+}
+function addLocalOrder(order){
+  try {
+    const arr = readLocalOrders();
+    // avoid duplicates by orderCode if present
+    if(order.orderCode && arr.some(o => o.orderCode === order.orderCode)) return;
+    arr.unshift(order);
+    writeLocalOrders(arr);
+    renderLocalOrders(); // immediate render
+    updateMyOrdersBadge(); // refresh badge
+  } catch(e){ console.warn("addLocalOrder failed", e); }
+}
+function renderLocalOrders(){
+  try {
+    if(!myOrdersDiv) return;
+    // Create or update local container at top
+    let container = document.getElementById('localOrdersContainer');
+    if(!container){
+      container = document.createElement('div');
+      container.id = 'localOrdersContainer';
+      // insert at the top of myOrdersDiv
+      myOrdersDiv.parentNode.insertBefore(container, myOrdersDiv);
+    }
+    const local = readLocalOrders();
+    if(local.length === 0){
+      container.innerHTML = '';
+      return;
+    }
+    let html = '<div style="margin-bottom:6px;"><strong>Your device orders</strong></div>';
+    local.forEach(o=>{
+      const t = o.time ? (new Date(o.time)).toLocaleString() : "";
+      const totalPrice = (Array.isArray(o.cart) ? o.cart.reduce((a,b)=>a+(b.price||0),0) : 0).toFixed(2);
+      const itemsList = Array.isArray(o.cart) ? o.cart.map(c=>`${c.name} (${c.colors ? c.colors.join(", ") : ""})`).join("<br>") : "";
+      const oc = o.orderCode ? ` <small style="color:#374151">[${o.orderCode}]</small>` : "";
+      html += `<div><p><b>${o.name || "Unknown"}</b> <small>(You)</small>${oc} - $${totalPrice} - Tip: $${o.tip||0} - <span class="${o.status==='done'?'doneBadge': o.status==='complete'?'doneBadge':'pendingBadge'}">${o.status||'pending'}</span><br>${itemsList}<br><small>${t}</small></p><hr></div>`;
+    });
+    container.innerHTML = html;
+  } catch(e){ console.warn("renderLocalOrders failed", e); }
+}
+
+/* ----------------------------
    STAR CLICK: allow changes, save locally, push to Firestore ratings collection, update UI instantly
    (unchanged behavior but kept here so everything stays in one place)
    ---------------------------- */
@@ -456,6 +508,7 @@ function generateOrderCode(){
 /* ----------------------------
    Checkout & Tip: UPDATED to include clientId and orderCode so orders are tied to this browser instantly
    and the customer receives an order code they can use on another device/account to view the order (ADDED)
+   Also mirrors the order locally (so My Orders shows it immediately).
    ---------------------------- */
 checkout.onclick = ()=>{ 
   if(!nameInput.value || !cart.length) return alert("Missing info"); 
@@ -471,6 +524,20 @@ tipModal.querySelectorAll("button").forEach(b=>{
     localStorage.setItem('unbeadable_name', userName);
     // create orderCode
     const orderCode = generateOrderCode();
+    // Build localOrder object to store locally immediately (mirror)
+    const localOrder = {
+      name: userName,
+      cart: JSON.parse(JSON.stringify(cart)),
+      status: "pending",
+      rating: localStorage.getItem("rating") || null,
+      tip: tip,
+      time: new Date().toISOString(),
+      clientId: clientId,
+      orderCode: orderCode,
+      contactEmail: null
+    };
+
+    // Try saving to Firestore, but always mirror locally so My Orders will show immediately
     try {
       const ref = await addDoc(collection(db,"orders"),{
         name: userName,
@@ -483,6 +550,9 @@ tipModal.querySelectorAll("button").forEach(b=>{
         orderCode: orderCode,          /* ADDED: save order code */
         contactEmail: null             /* optional placeholder if you want to add email later */
       });
+      // push local mirror (ensures it shows even if Firestore rules block reads)
+      addLocalOrder(localOrder);
+
       cart=[]; renderCart();
       // show order code & copy to clipboard (ADDED)
       try {
@@ -496,14 +566,18 @@ tipModal.querySelectorAll("button").forEach(b=>{
       updateMyOrdersBadge(); // update badge right away
     } catch(e) {
       console.error("Failed to place order:", e);
-      alert("Failed to place order. Try again.");
+      // Even if Firestore write fails (or reads are blocked), still mirror locally so the user sees their order
+      addLocalOrder(localOrder);
+      cart=[]; renderCart();
+      alert("Order placed locally (server save failed). Your order code: " + orderCode);
+      renderOrdersFromCache();
+      updateMyOrdersBadge();
     }
   };
 });
 
 /* ----------------------------
-   Admin login/logout (button toggles) (unchanged behavior)
-   ---------------------------- */
+   Admin login/logout (button toggles) (unchanged behavior) ---------------------------- */
 adminLogin.onclick = async ()=>{
   if (!adminLoggedIn) {
     // attempt sign in
@@ -544,6 +618,7 @@ onAuthStateChanged(auth, (user) => {
    and ALSO look up by orderCode/name/email when currentLookup is set
    This ensures "My Orders" shows the orders *you* created from this browser instantly,
    and supports cross-device lookup via the order code (ADDED).
+   Also renders local mirror orders by calling renderLocalOrders().
    ---------------------------- */
 function renderOrdersFromCache(){
   ordersDiv.innerHTML = "";
@@ -621,16 +696,22 @@ function renderOrdersFromCache(){
     }
   });
 
-  // update badge count to number of matching orders for this user/browser
+  // After rendering Firestore matches, also render local mirrored orders (so they show even when reads blocked)
+  renderLocalOrders();
+
+  // update badge count to number of matching orders for this user/browser (includes local orders)
   updateMyOrdersBadge(myCount);
 }
 
 /* ----------------------------
    updateMyOrdersBadge: sets the badge and animates briefly when increased
-   If count omitted, compute by scanning cache (safe fallback)
+   Combines Firestore count (passed in) with local mirror count for a total.
    ---------------------------- */
 function updateMyOrdersBadge(count){
-  // if count not provided, compute:
+  // local count
+  const localCount = readLocalOrders().length || 0;
+
+  // if count not provided, compute from ordersCache
   if(typeof count === 'undefined'){
     const currentName = nameInput.value.trim();
     count = ordersCache.reduce((acc,docSnap)=>{
@@ -639,17 +720,18 @@ function updateMyOrdersBadge(count){
       return acc;
     }, 0);
   }
-  // set number (show 99+ if large)
-  const display = count > 99 ? '99+' : String(count);
+
+  const totalCount = localCount + Number(count || 0);
+  const display = totalCount > 99 ? '99+' : String(totalCount);
   if(myOrdersBadge){
     const prev = myOrdersBadge.innerText;
     myOrdersBadge.innerText = display;
     // small "pop" when number increases
-    if(Number(count) > Number(prev || 0)){
+    if(Number(totalCount) > Number(prev || 0)){
       myOrdersBadge.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.18)' }, { transform: 'scale(1)' }], { duration: 300, easing: 'ease-out' });
     }
     // hide badge when zero
-    myOrdersBadge.style.display = (count === 0 ? 'none' : 'inline-flex');
+    myOrdersBadge.style.display = (totalCount === 0 ? 'none' : 'inline-flex');
   }
 }
 
@@ -904,6 +986,10 @@ window.addEventListener('load', ()=>{
       if(el.style.background.toLowerCase() === saved.toLowerCase()) el.classList.add('selected');
     });
   }
+
+  // ensure local orders are shown right away
+  renderLocalOrders();
+  updateMyOrdersBadge();
 });
 
 // Update position on resize & scroll so the 3px gap stays correct and responsive
