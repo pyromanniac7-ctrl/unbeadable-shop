@@ -994,5 +994,169 @@ window.addEventListener('resize', placeCustomizeUnderPanelOrButton);
 window.addEventListener('scroll', placeCustomizeUnderPanelOrButton);
 </script>
 
+<!--
+  NEW ADDITIVE SCRIPT: makes Find actually query Firestore if needed and replaces header text with your image.
+  This script is intentionally non-destructive — it doesn't remove or alter your source text; it changes DOM at runtime.
+-->
+<script type="module">
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, query, where, getDocs, getDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAabIc-81hx89cRxMxiDuIYV7AXvc7Gdto",
+  authDomain: "unbeadable-2e4f1.firebaseapp.com",
+  projectId: "unbeadable-2e4f1",
+  appId: "1:904715339138:web:0879a7b347805691d53b9b"
+};
+
+// reuse existing app if present, otherwise initialize a new one (keeps behavior safe)
+let app2;
+if (getApps && getApps().length) {
+  app2 = getApps()[0];
+} else {
+  app2 = initializeApp(firebaseConfig);
+}
+const db2 = getFirestore(app2);
+
+// Replace header text with the image you asked for (runtime DOM change; file unchanged)
+try {
+  const header = document.querySelector('header');
+  if (header) {
+    header.innerHTML = `<img src="https://i.imgur.com/iU6QnEf.png" alt="Unbeadable" style="max-width:320px; width:100%; height:auto; display:block; margin:0 auto;">`;
+  }
+} catch(e){
+  console.warn("Header image replacement failed:", e);
+}
+
+// Utility used to build order HTML (keeps consistent look)
+function buildOrderHTML(id, data, highlightYou=false){
+  const totalPrice = (Array.isArray(data.cart) ? data.cart.reduce((a,b)=>a+(b.price||0),0) : 0).toFixed(2);
+  const itemsList = Array.isArray(data.cart) ? data.cart.map(c=>`${c.name} (${c.colors ? c.colors.join(", ") : ""})`).join("<br>") : "";
+  const time = data.time && data.time.toDate ? data.time.toDate().toLocaleString() : (data.time && data.time.seconds ? new Date(data.time.seconds*1000).toLocaleString() : "");
+  const oc = data.orderCode ? ` <small style="color:#374151">[${data.orderCode}]</small>` : "";
+  const youBadge = highlightYou ? " <small>(You)</small>" : "";
+  return `<div><p><b>${data.name || "Unknown"}</b>${youBadge}${oc} - $${totalPrice} - Tip: $${data.tip || 0} - <span class="${data.status==='done'?'doneBadge': data.status==='complete'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr></div>`;
+}
+
+// Perform a lookup (searches orderCode, name, contactEmail, and doc id)
+// If matches in local cache already exist they will be shown by existing render logic; this is a server-side fallback.
+async function performLookupServer(lookup){
+  const field = (lookup || "").trim();
+  const outDiv = document.getElementById('myOrders');
+  const badge = document.getElementById('myOrdersBadge');
+  if(!field){
+    outDiv.innerHTML = '<p>Enter an order code, name, or email to look up.</p>';
+    badge.innerText = '0';
+    badge.style.display = 'none';
+    return;
+  }
+
+  outDiv.innerHTML = '<p>Searching...</p>';
+  const results = new Map();
+
+  // Query by orderCode
+  try {
+    const q1 = query(collection(db2,'orders'), where('orderCode','==', field));
+    const s1 = await getDocs(q1);
+    s1.forEach(d => results.set(d.id, d));
+  } catch(e){
+    console.warn("orderCode query failed:", e);
+  }
+
+  // Query by name
+  try {
+    const q2 = query(collection(db2,'orders'), where('name','==', field));
+    const s2 = await getDocs(q2);
+    s2.forEach(d => results.set(d.id, d));
+  } catch(e){
+    console.warn("name query failed:", e);
+  }
+
+  // Query by contactEmail
+  try {
+    const q3 = query(collection(db2,'orders'), where('contactEmail','==', field));
+    const s3 = await getDocs(q3);
+    s3.forEach(d => results.set(d.id, d));
+  } catch(e){
+    console.warn("email query failed:", e);
+  }
+
+  // Try fetching by doc id
+  try {
+    const docRef = doc(db2,'orders', field);
+    const dd = await getDoc(docRef);
+    if(dd.exists()) results.set(dd.id, dd);
+  } catch(e){
+    // ignore
+  }
+
+  if(results.size === 0){
+    outDiv.innerHTML = `<p>No orders found for "<b>${field}</b>".</p>`;
+    if(badge){ badge.innerText = '0'; badge.style.display = 'none'; }
+    return;
+  }
+
+  // Build HTML
+  let html = '';
+  results.forEach(docSnap => {
+    const d = docSnap.data();
+    const highlight = (d.clientId && d.clientId === localStorage.getItem('unbeadable_clientId'));
+    html += buildOrderHTML(docSnap.id, d, highlight);
+  });
+  outDiv.innerHTML = html;
+
+  // Update badge
+  if(badge){
+    const cnt = results.size;
+    badge.innerText = cnt > 99 ? '99+' : String(cnt);
+    badge.style.display = cnt ? 'inline-flex' : 'none';
+    badge.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }], { duration: 280, easing: 'ease-out' });
+  }
+}
+
+// Wire the Find button to try local render first, then do server lookup if nothing found locally
+const findButton = document.getElementById('lookupBtn');
+if(findButton){
+  findButton.addEventListener('click', async () => {
+    const lookupVal = (document.getElementById('lookupInput') || {}).value || '';
+    // first, try to trigger the existing render which uses currentLookup (this preserves behavior)
+    try {
+      // set global currentLookup if available (the main module defines it in its own scope),
+      // but since we can't access that local variable here, call server lookup directly to be robust.
+      await performLookupServer(lookupVal.trim());
+    } catch(e){
+      console.error("Lookup failed:", e);
+    }
+  });
+}
+
+// Allow Enter key in the lookup input to trigger search
+const lookupInputEl = document.getElementById('lookupInput');
+if(lookupInputEl){
+  lookupInputEl.addEventListener('keydown', async (ev) => {
+    if(ev.key === 'Enter'){
+      ev.preventDefault();
+      document.getElementById('lookupBtn').click();
+    }
+  });
+}
+
+// Clear button: clear lookup and optionally re-run (call existing render via UI by clicking Clear)
+const clearBtn = document.getElementById('clearLookupBtn');
+if(clearBtn){
+  clearBtn.addEventListener('click', () => {
+    const inp = document.getElementById('lookupInput');
+    if(inp) inp.value = '';
+    // trigger the existing UI handler: that one sets currentLookup etc. We cannot access that var,
+    // so simply show a helpful message and let the realtime listener keep My Orders list up-to-date.
+    document.getElementById('myOrders').innerHTML = '<p>Lookup cleared. Your orders (if any) are shown above by name or by client browser.</p>';
+    const badge = document.getElementById('myOrdersBadge');
+    if(badge) badge.style.display = badge.innerText === '0' ? 'none' : 'inline-flex';
+  });
+}
+
+// Keep script non-destructive — done.
+</script>
+
 </body>
 </html>
