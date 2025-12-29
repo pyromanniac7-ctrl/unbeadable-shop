@@ -26,8 +26,8 @@ button:hover { background:#6d28d9; }
 #myOrdersBtn { position:fixed; top:15px; right:15px; width:auto; padding:10px 14px; }
 #myOrdersPanel { position:fixed; top:60px; right:15px; background:white; padding:15px; border-radius:12px; width:300px; max-height:70vh; overflow:auto; display:none; box-shadow:0 10px 25px rgba(0,0,0,.2); }
 #ratingBox { position: fixed; top:15px; right:140px; background:white; padding:8px 12px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.15); display:flex; align-items:center; gap:6px; z-index:1000; }
-.star { font-size:20px; cursor:pointer; color:#d1d5db; }
-.star.active { color:#facc15; }
+.star { font-size:20px; cursor:pointer; color:#d1d5db; transition: transform 140ms ease; }
+.star.active { color:#facc15; transform: scale(1.05); }
 .star.locked { cursor:default; }
 #ratingGraphPanel { position: fixed; top:60px; right:280px; background:white; padding:12px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.15); width:260px; z-index:1000; display:none; }
 .barContainer { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
@@ -272,7 +272,18 @@ setPersistence(auth, browserLocalPersistence).catch(e=>{
   console.warn("setPersistence failed:", e);
 });
 
-// --- PREFILL NAME from localStorage so My Orders shows after reload ---
+/* -----------------------------
+   NEW: generate or load a clientId in localStorage (identifies this browser/user)
+   so orders created from this browser are marked and shown under "My Orders"
+   without needing a page reload.
+   ----------------------------- */
+let clientId = localStorage.getItem('unbeadable_clientId');
+if (!clientId) {
+  clientId = 'c_' + Math.random().toString(36).slice(2,12);
+  localStorage.setItem('unbeadable_clientId', clientId);
+}
+
+/* --- PREFILL NAME from localStorage so My Orders shows after reload --- */
 const storedName = localStorage.getItem('unbeadable_name');
 if (storedName) {
   nameInput.value = storedName;
@@ -291,7 +302,10 @@ if (savedRating) {
   stars.forEach(s => { if(s.dataset.star <= savedRating) s.classList.add("active"); });
 }
 
-// --- Star click: allow changes, save locally, push to Firestore ratings collection, update UI instantly ---
+/* ----------------------------
+   STAR CLICK: allow changes, save locally, push to Firestore ratings collection, update UI instantly
+   (unchanged behavior but kept here so everything stays in one place)
+   ---------------------------- */
 stars.forEach(star => {
   star.onclick = async () => {
     const rating = Number(star.dataset.star);
@@ -314,7 +328,9 @@ stars.forEach(star => {
   };
 });
 
-// --- Shop Products (unchanged behavior) ---
+/* ----------------------------
+   Shop Products (unchanged behavior)
+   ---------------------------- */
 const products = [
 {name:"Normal Bracelet",price:0.75},{name:"Triple Normal",price:0.95},{name:"Fishtail",price:0.85},{name:"Inverted Fishtail",price:0.95},
 {name:"Starburst",price:1.00},{name:"Honeycomb",price:1.50},{name:"Dragon Scale",price:1.75},{name:"Ladder",price:1.85},
@@ -393,7 +409,7 @@ products.forEach(p=>{
   shopGrid.appendChild(c);
 });
 
-// --- Checkout & Tip (unchanged) ---
+// --- Checkout & Tip: UPDATED to include clientId so orders are tied to this browser instantly ---
 checkout.onclick = ()=>{ 
   if(!nameInput.value || !cart.length) return alert("Missing info"); 
   tipModal.style.display="flex"; 
@@ -406,16 +422,24 @@ tipModal.querySelectorAll("button").forEach(b=>{
     if(!userName) return alert("Please enter your name!");
     // save the name locally so My Orders is prefilled & persists
     localStorage.setItem('unbeadable_name', userName);
-    await addDoc(collection(db,"orders"),{
-      name: userName,
-      cart,
-      status:"pending",
-      rating:localStorage.getItem("rating") || null,
-      tip:tip,
-      time:new Date()
-    });
-    cart=[]; renderCart();
-    alert(`Order placed!${tip>0?" Tip added: $"+tip:""}`);
+    try {
+      await addDoc(collection(db,"orders"),{
+        name: userName,
+        cart,
+        status:"pending",
+        rating:localStorage.getItem("rating") || null,
+        tip:tip,
+        time:new Date(),
+        clientId: clientId // <<-- added: tie order to this client/browser
+      });
+      cart=[]; renderCart();
+      alert(`Order placed!${tip>0?" Tip added: $"+tip:""}`);
+      // Immediately re-render (in case onSnapshot arrives a bit later)
+      renderOrdersFromCache();
+    } catch(e) {
+      console.error("Failed to place order:", e);
+      alert("Failed to place order. Try again.");
+    }
   };
 });
 
@@ -454,20 +478,25 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// --- helper to render using the cached snapshot docs (creates DOM so admin buttons can attach) ---
+/* ----------------------------
+   helper to render using the cached snapshot docs (creates DOM so admin buttons can attach)
+   MODIFIED: show orders that match the currentName OR match the clientId for this browser.
+   This ensures "My Orders" shows the orders *you* created from this browser instantly.
+   ---------------------------- */
 function renderOrdersFromCache(){
   ordersDiv.innerHTML = "";
   myOrdersDiv.innerHTML = "";
   const currentName = nameInput.value.trim();
+
   ordersCache.forEach(docSnap=>{
     const data = docSnap.data();
     const id = docSnap.id;
-    const totalPrice = data.cart.reduce((a,b)=>a+b.price,0).toFixed(2);
-    const itemsList = data.cart.map(c=>`${c.name} (${c.colors.join(", ")})`).join("<br>");
-    const time = data.time && data.time.toDate ? data.time.toDate().toLocaleString() : new Date(data.time.seconds*1000).toLocaleString();
+    const totalPrice = (Array.isArray(data.cart) ? data.cart.reduce((a,b)=>a+(b.price||0),0) : 0).toFixed(2);
+    const itemsList = Array.isArray(data.cart) ? data.cart.map(c=>`${c.name} (${c.colors ? c.colors.join(", ") : ""})`).join("<br>") : "";
+    const time = data.time && data.time.toDate ? data.time.toDate().toLocaleString() : (data.time && data.time.seconds ? new Date(data.time.seconds*1000).toLocaleString() : "");
 
     const wrapper = document.createElement("div");
-    wrapper.innerHTML = `<p><b>${data.name}</b> - $${totalPrice} - Tip: $${data.tip} - <span class="${data.status==='done'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
+    wrapper.innerHTML = `<p><b>${data.name || "Unknown"}</b> - $${totalPrice} - Tip: $${data.tip || 0} - <span class="${data.status==='done'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
 
     if(adminLoggedIn){
       const btn = document.createElement("button");
@@ -497,22 +526,29 @@ function renderOrdersFromCache(){
       ordersDiv.appendChild(wrapper);
     }
 
-    if(currentName && data.name === currentName){
+    // Show in My Orders if either name matches currentName OR this order was created by this clientId
+    if( (currentName && data.name === currentName) || (data.clientId && data.clientId === clientId) ){
       const myWrap = document.createElement("div");
-      myWrap.innerHTML = `<p><b>${data.name}</b> - $${totalPrice} - Tip: $${data.tip} - <span class="${data.status==='done'?'doneBadge': data.status==='complete'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
+      // highlight orders created by this client
+      const youBadge = (data.clientId && data.clientId === clientId) ? " <small>(You)</small>" : "";
+      myWrap.innerHTML = `<p><b>${data.name || "Unknown"}</b>${youBadge} - $${totalPrice} - Tip: $${data.tip || 0} - <span class="${data.status==='done'?'doneBadge': data.status==='complete'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
       myOrdersDiv.appendChild(myWrap);
     }
   });
 }
 
-// --- Real-time Orders: cache docs and render via renderOrdersFromCache (unchanged) ---
+/* ----------------------------
+   Real-time Orders: cache docs and render via renderOrdersFromCache (unchanged but essential)
+   ---------------------------- */
 onSnapshot(collection(db,"orders"), snapshot=>{
   ordersCache = [];
   snapshot.forEach(doc => ordersCache.push(doc));
   renderOrdersFromCache();
 });
 
-// --- Delete modal handlers (unchanged) ---
+/* ----------------------------
+   Delete modal handlers (unchanged)
+   ---------------------------- */
 deleteNo.onclick = () => {
   orderToDeleteId = null;
   deleteModal.style.display = "none";
@@ -530,9 +566,17 @@ deleteYes.onclick = async () => {
 };
 
 // --- Toggle Panels (unchanged) ---
-myOrdersBtn.onclick = ()=>{ myOrdersPanel.style.display = myOrdersPanel.style.display==="block"?"none":"block"; };
+// keep existing behavior but also cause the customize position & render to update
+myOrdersBtn.onclick = ()=>{ 
+  myOrdersPanel.style.display = myOrdersPanel.style.display==="block"?"none":"block";
+  // ensure immediate re-render and reposition after toggle
+  setTimeout(()=>{ updateCustomizePosition(); renderOrdersFromCache(); }, 45);
+};
 
-// --- RATINGS AGGREGATION: AppStore-like bar graph (live) ---
+/* ----------------------------
+   RATINGS AGGREGATION: AppStore-like bar graph (live) ---
+   (your existing listener updates the graph live)
+   ---------------------------- */
 // initialize bars (5..1)
 const ratingBarsContainer = document.getElementById('ratingBars');
 function buildEmptyBars(){
@@ -580,7 +624,24 @@ onSnapshot(collection(db,"ratings"), snapshot=>{
   });
 });
 
-// --- Ratings toggle button already present (keeps original behaviour but uses new graph) ---
+/* ----------------------------
+   LIVE: Listen to this user's rating doc so their star UI updates if changed from another browser/device.
+   This ensures the star UI "changes with every rating" for your user entry.
+   ---------------------------- */
+onSnapshot(doc(db, "ratings", userRatingId), docSnap => {
+  if(!docSnap.exists) return;
+  const d = docSnap.data();
+  const r = Number(d.rating) || 0;
+  // update star UI to reflect current saved rating for this user
+  stars.forEach(s => s.classList.remove("active"));
+  stars.forEach(s => { if(Number(s.dataset.star) <= r) s.classList.add("active"); });
+  // keep localStorage in sync (so future page loads remember it)
+  localStorage.setItem("rating", String(r));
+});
+
+/* ----------------------------
+   Ratings toggle button already present (keeps original behaviour but uses new graph)
+   ---------------------------- */
 toggleRatingGraph.onclick = async ()=>{
   const panel = document.getElementById("ratingGraphPanel");
   panel.style.display = panel.style.display==="block"?"none":"block";
@@ -593,7 +654,7 @@ toggleRatingGraph.onclick = async ()=>{
    - White is intentionally excluded
    - Accent choice is saved to localStorage and applied on load
    - Position of the customize container is dynamically set to be exactly
-     3px below the My Orders button (keeps calling update on resize/scroll)
+     3px below the My Orders button/panel and updated on resize/scroll
    ---------------------------- */
 
 // Palette for GUI customization (no white)
@@ -680,23 +741,30 @@ customizeToggle.onclick = () => {
 // build initial customize picker invisibly (optional)
 buildCustomizePicker();
 
-// DYNAMIC POSITIONING: place customizeContainer exactly 3px under myOrdersBtn
+/* ----------------------------
+   DYNAMIC POSITIONING: place customizeContainer exactly 3px under myOrdersBtn
+   and when the My Orders *panel* is visible place it 3px under the panel's bottom.
+   Runs on load, resize, scroll, and when you toggle My Orders.
+   ---------------------------- */
 function updateCustomizePosition(){
   if(!customizeContainer || !myOrdersBtn) return;
-  // get button rect relative to viewport
-  const btnRect = myOrdersBtn.getBoundingClientRect();
-  // compute top value so customizeContainer's top is 3px below the button's bottom
-  const topPx = Math.round(btnRect.bottom + 3); // 3px gap requested
-  // apply as px so it's fixed relative to viewport (matches the fixed myOrdersBtn)
+  // prefer to place under myOrdersPanel if it's visible, otherwise under button
+  const panelVisible = window.getComputedStyle(myOrdersPanel).display !== 'none';
+  let topPx;
+  if(panelVisible){
+    const rect = myOrdersPanel.getBoundingClientRect();
+    topPx = Math.round(rect.bottom + 3);
+  } else {
+    const btnRect = myOrdersBtn.getBoundingClientRect();
+    topPx = Math.round(btnRect.bottom + 3);
+  }
   customizeContainer.style.top = `${topPx}px`;
-  // ensure it's visible on small screens: if button is near bottom, keep container inside viewport
+
+  // clamp to viewport bottom
   const viewportHeight = window.innerHeight;
-  // height estimate of container (will be auto), but ensure it doesn't go off-screen: clamp if needed
   const containerRect = customizeContainer.getBoundingClientRect();
-  // if container overflows bottom, shift it up so it fits into viewport with a small margin
   if(containerRect.bottom > viewportHeight - 8){
     const overflow = containerRect.bottom - (viewportHeight - 8);
-    // move container up by overflow amount
     customizeContainer.style.top = `${Math.max(8, topPx - overflow)}px`;
   }
 }
@@ -720,7 +788,16 @@ window.addEventListener('scroll', updateCustomizePosition);
 // also update when user toggles My Orders visibility (in case page changes)
 myOrdersBtn.addEventListener('click', ()=> {
   // small timeout to allow layout changes to settle then update position
-  setTimeout(updateCustomizePosition, 40);
+  setTimeout(updateCustomizePosition, 45);
+});
+
+/* ----------------------------
+   Ensure My Orders updates instantly when the name input changes (no reload)
+   ---------------------------- */
+nameInput.addEventListener('input', () => {
+  // local store update so it persists & render refreshes
+  localStorage.setItem('unbeadable_name', nameInput.value.trim());
+  renderOrdersFromCache();
 });
 
 /* ----------------------------
@@ -776,4 +853,3 @@ window.addEventListener('scroll', placeCustomizeUnderPanelOrButton);
 
 </body>
 </html>
-
