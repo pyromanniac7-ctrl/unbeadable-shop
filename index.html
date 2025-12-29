@@ -115,7 +115,7 @@ button:hover { background:#6d28d9; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, query, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 // --- Firebase Config ---
@@ -155,6 +155,7 @@ const toggleRatingGraph = document.getElementById("toggleRatingGraph");
 // --- State ---
 let colors = ["Red","Blue","Green","Yellow","Purple","Orange","Pink","Black","White","Cyan","Lime"];
 let cart=[], selectedBracelet="", selectedPrice=0, selectedColors=[], pendingExtra=[];
+let adminLoggedIn = false;
 
 // --- Ratings ---
 const savedRating = localStorage.getItem("rating");
@@ -218,13 +219,18 @@ products.forEach(p=>{
 });
 
 // --- Checkout & Tip ---
-checkout.onclick = ()=>{ if(!document.getElementById("name").value || !cart.length) return alert("Missing info"); tipModal.style.display="flex"; };
+checkout.onclick = ()=>{ 
+  if(!document.getElementById("name").value || !cart.length) return alert("Missing info"); 
+  tipModal.style.display="flex"; 
+};
 tipModal.querySelectorAll("button").forEach(b=>{
   b.onclick=async()=>{
     const tip = parseInt(b.dataset.tip);
     tipModal.style.display="none";
+    const userName = document.getElementById("name").value.trim();
+    if(!userName) return alert("Please enter your name!");
     await addDoc(collection(db,"orders"),{
-      name:document.getElementById("name").value,
+      name: userName,
       cart,
       status:"pending",
       rating:localStorage.getItem("rating") || null,
@@ -237,7 +243,6 @@ tipModal.querySelectorAll("button").forEach(b=>{
 });
 
 // --- Admin login ---
-let adminLoggedIn = false;
 adminLogin.onclick = async ()=>{
   try {
     await signInWithEmailAndPassword(auth, adminEmail.value, adminPass.value);
@@ -250,6 +255,7 @@ adminLogin.onclick = async ()=>{
 onSnapshot(collection(db,"orders"), snapshot=>{
   ordersDiv.innerHTML="";
   myOrdersDiv.innerHTML="";
+  const currentName = document.getElementById("name").value.trim();
   snapshot.forEach(doc=>{
     const data = doc.data();
     const totalPrice = data.cart.reduce((a,b)=>a+b.price,0).toFixed(2);
@@ -258,8 +264,8 @@ onSnapshot(collection(db,"orders"), snapshot=>{
     const orderHTML = `<p><b>${data.name}</b> - $${totalPrice} - Tip: $${data.tip} - <span class="${data.status==='done'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
     // Admin sees all
     if(adminLoggedIn) ordersDiv.innerHTML += orderHTML;
-    // My Orders sees all for now (can filter per user later)
-    myOrdersDiv.innerHTML += orderHTML;
+    // My Orders sees only current user's orders
+    if(currentName && data.name === currentName) myOrdersDiv.innerHTML += orderHTML;
   });
 });
 
