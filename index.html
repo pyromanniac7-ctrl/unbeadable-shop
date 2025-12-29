@@ -39,6 +39,8 @@ button:hover { background:#6d28d9; }
 #toggleRatingGraph { position: fixed; top:15px; right:500px; padding:8px 12px; border-radius:12px; border:none; background:#7c3aed; color:white; cursor:pointer; z-index:1000; }
 #toggleRatingGraph:hover { background:#6d28d9; }
 #tipModal .modal-content button, #extraModal .modal-content button { margin-top:8px; width:auto; padding:8px 12px; margin-right:6px; }
+.adminOrderBtn { margin-left:8px; padding:6px 8px; border-radius:6px; background:#10b981; color:white; border:none; cursor:pointer; }
+.adminOrderBtn:hover { background:#059669; }
 </style>
 </head>
 <body>
@@ -115,8 +117,8 @@ button:hover { background:#6d28d9; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 // --- Firebase Config ---
 const firebaseConfig = {
@@ -151,11 +153,25 @@ const extraModal = document.getElementById("extraModal");
 const extraYes = document.getElementById("extraYes");
 const extraNo = document.getElementById("extraNo");
 const toggleRatingGraph = document.getElementById("toggleRatingGraph");
+const nameInput = document.getElementById("name"); // small helpful variable
 
 // --- State ---
 let colors = ["Red","Blue","Green","Yellow","Purple","Orange","Pink","Black","White","Cyan","Lime"];
 let cart=[], selectedBracelet="", selectedPrice=0, selectedColors=[], pendingExtra=[];
 let adminLoggedIn = false;
+let ordersCache = []; // store latest snapshot docs to allow re-rendering on auth changes
+
+// --- Ensure Auth Persistence (so admin stays logged in across reloads) ---
+setPersistence(auth, browserLocalPersistence).catch(e=>{
+  // If persistence setting fails, ignore (browser will default)
+  console.warn("setPersistence failed:", e);
+});
+
+// --- PREFILL NAME from localStorage so My Orders shows after reload ---
+const storedName = localStorage.getItem('unbeadable_name');
+if (storedName) {
+  nameInput.value = storedName;
+}
 
 // --- Ratings ---
 const savedRating = localStorage.getItem("rating");
@@ -220,15 +236,17 @@ products.forEach(p=>{
 
 // --- Checkout & Tip ---
 checkout.onclick = ()=>{ 
-  if(!document.getElementById("name").value || !cart.length) return alert("Missing info"); 
+  if(!nameInput.value || !cart.length) return alert("Missing info"); 
   tipModal.style.display="flex"; 
 };
 tipModal.querySelectorAll("button").forEach(b=>{
   b.onclick=async()=>{
     const tip = parseInt(b.dataset.tip);
     tipModal.style.display="none";
-    const userName = document.getElementById("name").value.trim();
+    const userName = nameInput.value.trim();
     if(!userName) return alert("Please enter your name!");
+    // save the name locally so My Orders is prefilled & persists
+    localStorage.setItem('unbeadable_name', userName);
     await addDoc(collection(db,"orders"),{
       name: userName,
       cart,
@@ -242,37 +260,98 @@ tipModal.querySelectorAll("button").forEach(b=>{
   };
 });
 
-// --- Admin login ---
+// --- Admin login/logout (button toggles) ---
 adminLogin.onclick = async ()=>{
-  try {
-    await signInWithEmailAndPassword(auth, adminEmail.value, adminPass.value);
-    adminLoggedIn = true;
-    alert("Admin logged in!");
-  } catch(e){ alert("Admin login failed"); }
+  if (!adminLoggedIn) {
+    // attempt sign in
+    try {
+      await signInWithEmailAndPassword(auth, adminEmail.value, adminPass.value);
+      // success is handled by onAuthStateChanged
+    } catch(e){ alert("Admin login failed"); }
+  } else {
+    // sign out
+    try {
+      await signOut(auth);
+      adminLoggedIn = false;
+      adminLogin.innerText = "Login";
+      localStorage.removeItem('unbeadable_admin');
+      alert("Admin logged out");
+    } catch(e) { console.warn("signOut failed", e); }
+  }
 };
 
-// --- Real-time Orders ---
-onSnapshot(collection(db,"orders"), snapshot=>{
-  ordersDiv.innerHTML="";
-  myOrdersDiv.innerHTML="";
-  const currentName = document.getElementById("name").value.trim();
-  snapshot.forEach(doc=>{
-    const data = doc.data();
+// --- onAuthStateChanged: keeps adminLoggedIn true when Firebase has a session ---
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    adminLoggedIn = true;
+    localStorage.setItem('unbeadable_admin', '1');
+    adminLogin.innerText = "Logout";
+    // auto-open admin panel (scroll into view, focus it)
+    ordersDiv.scrollIntoView({behavior:"smooth", block:"center"});
+    renderOrdersFromCache();
+  } else {
+    adminLoggedIn = false;
+    localStorage.removeItem('unbeadable_admin');
+    adminLogin.innerText = "Login";
+    renderOrdersFromCache();
+  }
+});
+
+// --- helper to render using the cached snapshot docs (creates DOM so admin buttons can attach) ---
+function renderOrdersFromCache(){
+  ordersDiv.innerHTML = "";
+  myOrdersDiv.innerHTML = "";
+  const currentName = nameInput.value.trim();
+  ordersCache.forEach(docSnap=>{
+    const data = docSnap.data();
+    const id = docSnap.id;
     const totalPrice = data.cart.reduce((a,b)=>a+b.price,0).toFixed(2);
     const itemsList = data.cart.map(c=>`${c.name} (${c.colors.join(", ")})`).join("<br>");
     const time = data.time && data.time.toDate ? data.time.toDate().toLocaleString() : new Date(data.time.seconds*1000).toLocaleString();
-    const orderHTML = `<p><b>${data.name}</b> - $${totalPrice} - Tip: $${data.tip} - <span class="${data.status==='done'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
-    // Admin sees all
-    if(adminLoggedIn) ordersDiv.innerHTML += orderHTML;
-    // My Orders sees only current user's orders
-    if(currentName && data.name === currentName) myOrdersDiv.innerHTML += orderHTML;
+
+    // Build a DOM block so we can attach a handler to the admin button
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = `<p><b>${data.name}</b> - $${totalPrice} - Tip: $${data.tip} - <span class="${data.status==='done'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
+
+    // If admin, add "Mark Complete" button
+    if(adminLoggedIn){
+      const btn = document.createElement("button");
+      btn.className = "adminOrderBtn";
+      btn.textContent = "Mark Complete";
+      // Attach click to update the Firestore document status -> "complete"
+      btn.addEventListener("click", async () => {
+        try {
+          await updateDoc(doc(db, "orders", id), { status: "complete" });
+          // no further action required; onSnapshot will update UI
+        } catch(err){
+          console.error("Failed to update status:", err);
+          alert("Failed to update order status.");
+        }
+      });
+      wrapper.querySelector("p").appendChild(btn);
+      ordersDiv.appendChild(wrapper);
+    }
+
+    // My Orders (only show if matches current name)
+    if(currentName && data.name === currentName){
+      const myWrap = document.createElement("div");
+      myWrap.innerHTML = `<p><b>${data.name}</b> - $${totalPrice} - Tip: $${data.tip} - <span class="${data.status==='done'?'doneBadge': data.status==='complete'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
+      myOrdersDiv.appendChild(myWrap);
+    }
   });
+}
+
+// --- Real-time Orders: cache docs and render via renderOrdersFromCache ---
+onSnapshot(collection(db,"orders"), snapshot=>{
+  ordersCache = [];
+  snapshot.forEach(doc => ordersCache.push(doc));
+  renderOrdersFromCache();
 });
 
 // --- Toggle Panels ---
 myOrdersBtn.onclick = ()=>{ myOrdersPanel.style.display = myOrdersPanel.style.display==="block"?"none":"block"; };
 
-// --- Ratings Graph ---
+// --- Ratings Graph (keeps original behavior) ---
 toggleRatingGraph.onclick = async ()=>{
   const panel = document.getElementById("ratingGraphPanel");
   panel.style.display = panel.style.display==="block"?"none":"block";
@@ -281,3 +360,4 @@ toggleRatingGraph.onclick = async ()=>{
 
 </body>
 </html>
+
