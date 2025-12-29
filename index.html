@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Unbeadable Shop</title>
 <style>
+/* (original styles unchanged) */
 body { font-family: Arial,sans-serif; margin:0; background:#f5f7fb; }
 header { background:#7c3aed; color:white; padding:30px; text-align:center; }
 .container { max-width:1100px; margin:40px auto; padding:20px; }
@@ -142,6 +143,16 @@ button:hover { background: var(--accent-hover) !important; }
 <button id="myOrdersBtn" aria-haspopup="true" aria-expanded="false">My Orders <span id="myOrdersBadge">0</span></button>
 <div id="myOrdersPanel" aria-hidden="true">
   <h3>My Orders</h3>
+
+  <!-- ADDED: lookup controls (additive only) -->
+  <div style="margin-bottom:10px;">
+    <input id="lookupInput" placeholder="Order code, name, or email" style="width:100%; padding:8px; margin-bottom:6px; box-sizing:border-box;">
+    <div style="display:flex; gap:6px;">
+      <button id="lookupBtn" style="flex:1; width:auto; padding:8px;">Find</button>
+      <button id="clearLookupBtn" style="flex:1; width:auto; padding:8px; background:#6b7280;">Clear</button>
+    </div>
+  </div>
+
   <div id="myOrders"></div>
 
   <!-- NOTE: customize controls were moved OUTSIDE this element per your request -->
@@ -266,6 +277,11 @@ const extraNo = document.getElementById("extraNo");
 const toggleRatingGraph = document.getElementById("toggleRatingGraph");
 const nameInput = document.getElementById("name"); // small helpful variable
 
+// Lookup controls (ADDED)
+const lookupInput = document.getElementById("lookupInput");
+const lookupBtn = document.getElementById("lookupBtn");
+const clearLookupBtn = document.getElementById("clearLookupBtn");
+
 // Delete modal elements (added)
 const deleteModal = document.getElementById("deleteModal");
 const deleteYes = document.getElementById("deleteYes");
@@ -283,6 +299,7 @@ let colors = ["Red","Blue","Green","Yellow","Purple","Orange","Pink","Black","Wh
 let cart=[], selectedBracelet="", selectedPrice=0, selectedColors=[], pendingExtra=[];
 let adminLoggedIn = false;
 let ordersCache = []; // store latest snapshot docs to allow re-rendering on auth changes
+let currentLookup = ""; // ADDED: filters My Orders by code/name/email if filled
 
 // --- Ensure Auth Persistence (so admin stays logged in across reloads) ---
 setPersistence(auth, browserLocalPersistence).catch(e=>{
@@ -427,7 +444,19 @@ products.forEach(p=>{
   shopGrid.appendChild(c);
 });
 
-// --- Checkout & Tip: UPDATED to include clientId so orders are tied to this browser instantly ---
+/* ----------------------------
+   Helper: generate short order code (ADDED)
+   Format: ORD-xxxxx (5 chars from base36 timestamp+random)
+   ---------------------------- */
+function generateOrderCode(){
+  const part = (Date.now().toString(36).slice(-5) + Math.random().toString(36).slice(2,6)).slice(0,6);
+  return "ORD-" + part.toUpperCase();
+}
+
+/* ----------------------------
+   Checkout & Tip: UPDATED to include clientId and orderCode so orders are tied to this browser instantly
+   and the customer receives an order code they can use on another device/account to view the order (ADDED)
+   ---------------------------- */
 checkout.onclick = ()=>{ 
   if(!nameInput.value || !cart.length) return alert("Missing info"); 
   tipModal.style.display="flex"; 
@@ -440,18 +469,28 @@ tipModal.querySelectorAll("button").forEach(b=>{
     if(!userName) return alert("Please enter your name!");
     // save the name locally so My Orders is prefilled & persists
     localStorage.setItem('unbeadable_name', userName);
+    // create orderCode
+    const orderCode = generateOrderCode();
     try {
-      await addDoc(collection(db,"orders"),{
+      const ref = await addDoc(collection(db,"orders"),{
         name: userName,
         cart,
         status:"pending",
         rating:localStorage.getItem("rating") || null,
         tip:tip,
         time:new Date(),
-        clientId: clientId // <<-- added: tie order to this client/browser
+        clientId: clientId,
+        orderCode: orderCode,          /* ADDED: save order code */
+        contactEmail: null             /* optional placeholder if you want to add email later */
       });
       cart=[]; renderCart();
-      alert(`Order placed!${tip>0?" Tip added: $"+tip:""}`);
+      // show order code & copy to clipboard (ADDED)
+      try {
+        await navigator.clipboard.writeText(orderCode);
+        alert(`Order placed! Your order code: ${orderCode}\n(it was copied to your clipboard)`);
+      } catch(e) {
+        alert(`Order placed! Your order code: ${orderCode}\n(copy failed — please copy it manually)`);
+      }
       // Immediately re-render (in case onSnapshot arrives a bit later)
       renderOrdersFromCache();
       updateMyOrdersBadge(); // update badge right away
@@ -462,7 +501,9 @@ tipModal.querySelectorAll("button").forEach(b=>{
   };
 });
 
-// --- Admin login/logout (button toggles) (unchanged behavior) ---
+/* ----------------------------
+   Admin login/logout (button toggles) (unchanged behavior)
+   ---------------------------- */
 adminLogin.onclick = async ()=>{
   if (!adminLoggedIn) {
     // attempt sign in
@@ -499,15 +540,19 @@ onAuthStateChanged(auth, (user) => {
 
 /* ----------------------------
    helper to render using the cached snapshot docs (creates DOM so admin buttons can attach)
-   MODIFIED: show orders that match the currentName OR match the clientId for this browser.
-   This ensures "My Orders" shows the orders *you* created from this browser instantly.
-   Also updates the badge count.
+   MODIFIED: show orders that match the currentName OR match the clientId for this browser
+   and ALSO look up by orderCode/name/email when currentLookup is set
+   This ensures "My Orders" shows the orders *you* created from this browser instantly,
+   and supports cross-device lookup via the order code (ADDED).
    ---------------------------- */
 function renderOrdersFromCache(){
   ordersDiv.innerHTML = "";
   myOrdersDiv.innerHTML = "";
   const currentName = nameInput.value.trim();
   let myCount = 0;
+
+  // normalize lookup
+  const lookup = (currentLookup || "").trim();
 
   ordersCache.forEach(docSnap=>{
     const data = docSnap.data();
@@ -517,7 +562,9 @@ function renderOrdersFromCache(){
     const time = data.time && data.time.toDate ? data.time.toDate().toLocaleString() : (data.time && data.time.seconds ? new Date(data.time.seconds*1000).toLocaleString() : "");
 
     const wrapper = document.createElement("div");
-    wrapper.innerHTML = `<p><b>${data.name || "Unknown"}</b> - $${totalPrice} - Tip: $${data.tip || 0} - <span class="${data.status==='done'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
+    // show orderCode if available (ADDED)
+    const oc = data.orderCode ? ` <small style="color:#374151">[${data.orderCode}]</small>` : "";
+    wrapper.innerHTML = `<p><b>${data.name || "Unknown"}</b>${oc} - $${totalPrice} - Tip: $${data.tip || 0} - <span class="${data.status==='done'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
 
     if(adminLoggedIn){
       const btn = document.createElement("button");
@@ -547,13 +594,29 @@ function renderOrdersFromCache(){
       ordersDiv.appendChild(wrapper);
     }
 
-    // Show in My Orders if either name matches currentName OR this order was created by this clientId
-    if( (currentName && data.name === currentName) || (data.clientId && data.clientId === clientId) ){
+    // Determine if this order should show in My Orders:
+    let showInMyOrders = false;
+    // match by typed name or by clientId
+    if((currentName && data.name === currentName) || (data.clientId && data.clientId === clientId)) showInMyOrders = true;
+
+    // If a lookup is active, override: match orderCode OR name OR contactEmail OR document id (ADDED)
+    if(lookup){
+      const l = lookup.toLowerCase();
+      const matchesCode = data.orderCode && String(data.orderCode).toLowerCase() === l;
+      const matchesName = data.name && String(data.name).toLowerCase() === l;
+      const matchesEmail = data.contactEmail && String(data.contactEmail).toLowerCase() === l;
+      const matchesId = id === lookup;
+      if(matchesCode || matchesName || matchesEmail || matchesId) showInMyOrders = true;
+      else showInMyOrders = false; // when lookup present, show only matches
+    }
+
+    if(showInMyOrders){
       myCount++;
       const myWrap = document.createElement("div");
       // highlight orders created by this client
       const youBadge = (data.clientId && data.clientId === clientId) ? " <small>(You)</small>" : "";
-      myWrap.innerHTML = `<p><b>${data.name || "Unknown"}</b>${youBadge} - $${totalPrice} - Tip: $${data.tip || 0} - <span class="${data.status==='done'?'doneBadge': data.status==='complete'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
+      const oc2 = data.orderCode ? ` <small style="color:#374151">[${data.orderCode}]</small>` : "";
+      myWrap.innerHTML = `<p><b>${data.name || "Unknown"}</b>${youBadge}${oc2} - $${totalPrice} - Tip: $${data.tip || 0} - <span class="${data.status==='done'?'doneBadge': data.status==='complete'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
       myOrdersDiv.appendChild(myWrap);
     }
   });
@@ -864,7 +927,24 @@ nameInput.addEventListener('input', () => {
 });
 
 /* ----------------------------
-   END CUSTOMIZE LOGIC
+   Lookup controls (ADDED)
+   - supports searching orders by order code, name, email, or Firestore id
+   - works without reloading and does not remove anything
+   ---------------------------- */
+lookupBtn.addEventListener('click', () => {
+  currentLookup = lookupInput.value.trim();
+  renderOrdersFromCache();
+  updateMyOrdersBadge();
+});
+clearLookupBtn.addEventListener('click', () => {
+  currentLookup = "";
+  lookupInput.value = "";
+  renderOrdersFromCache();
+  updateMyOrdersBadge();
+});
+
+/* ----------------------------
+   END CUSTOMIZE & LOOKUP LOGIC
    ---------------------------- */
 
 </script>
