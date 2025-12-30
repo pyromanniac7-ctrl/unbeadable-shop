@@ -119,6 +119,39 @@ button:hover { background: var(--accent-hover) !important; }
   /* on small screens move customize to left so it doesn't overlap */
   #customizeContainer { right: 15px; top: auto; bottom: 15px; width: 260px; }
 }
+
+/* ---------- MOBILE & TOUCH ENHANCEMENTS (ADDED, NON-DESTRUCTIVE) ---------- */
+/* increase tappable sizes, make panels modal-like on small screens, better scrolling */
+button, .color-option { -webkit-tap-highlight-color: rgba(0,0,0,0.08); touch-action: manipulation; }
+
+@media (max-width:900px){
+  body { font-size:15px; }
+  header { padding:20px; }
+  .card { padding:16px; }
+  .bracelet-img { width:96px; height:96px; }
+  button { padding:12px; font-size:16px; min-height:48px; border-radius:10px; }
+  input, textarea { padding:12px; font-size:16px; }
+  .color-option { width:44px; height:44px; }
+  .star { font-size:26px; }
+  #shopGrid { grid-template-columns: repeat(2,1fr); }
+}
+
+@media (max-width:480px){
+  #myOrdersPanel { left:8px; right:8px; width:auto; top:70px; max-height:calc(100vh - 80px); border-radius:12px; }
+  .modal-content { width:95%; max-width:none; padding:16px; border-radius:10px; }
+  #customizeContainer { width: calc(100% - 30px); left:15px; right:15px; }
+  #ratingBox { right: 120px; }
+}
+
+/* visual locked state for stars */
+.star.locked { opacity:0.7; transform:none; pointer-events:none; }
+
+/* make panels scroll smoothly on touch */
+#myOrdersPanel, .modal-content, #ratingGraphPanel { -webkit-overflow-scrolling: touch; }
+
+/* small active feedback when touched (class toggled by JS) */
+button.active-touch { transform: translateY(1px); opacity:0.98; }
+
 </style>
 </head>
 <body>
@@ -597,7 +630,7 @@ adminLogin.onclick = async ()=>{
 };
 
 // --- onAuthStateChanged: keeps adminLoggedIn true when Firebase has a session (unchanged behavior) ---
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged = onAuthStateChanged(auth, (user) => {
   if (user) {
     adminLoggedIn = true;
     localStorage.setItem('unbeadable_admin', '1');
@@ -1242,6 +1275,89 @@ if(clearBtn){
 }
 
 // Keep script non-destructive — done.
+</script>
+
+<!-- --------- MOBILE/TOUCH & RATING LOCK ENHANCEMENTS (ADDITIVE) --------- -->
+<style>
+/* minor visual helper when touch pressing */
+button:active { transform: translateY(1px); }
+</style>
+<script>
+// This small script only adds touch-friendliness and a one-time rating lock (per-browser).
+(function(){
+  // Close modals when tapping outside modal-content
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('.modal').forEach(modal=>{
+      modal.addEventListener('click', function(e){
+        if(e.target === modal) modal.style.display = 'none';
+      }, {passive:true});
+    });
+
+    // Touch feedback for buttons
+    document.querySelectorAll('button').forEach(btn=>{
+      btn.addEventListener('touchstart', function(){ this.classList.add('active-touch'); }, {passive:true});
+      btn.addEventListener('touchend', function(){ this.classList.remove('active-touch'); }, {passive:true});
+    });
+
+    // STAR: enforce single-rating per browser
+    const stars = document.querySelectorAll('.star');
+    function lockStars(){
+      stars.forEach(s=>{
+        s.classList.add('locked');
+        s.setAttribute('aria-disabled','true');
+        s.style.pointerEvents = 'none';
+        s.title = 'Rating submitted';
+      });
+    }
+    // If localStorage already has a rating, lock stars on load
+    if(localStorage.getItem('rating')){
+      localStorage.setItem('rating_locked','1');
+      lockStars();
+    }
+
+    // Wrap existing onclick handlers to lock after first submission
+    stars.forEach(s=>{
+      const old = s.onclick;
+      s.onclick = function(e){
+        if(localStorage.getItem('rating_locked')) return;
+        if(typeof old === 'function'){
+          try{ old.call(this,e); } catch(err){ console.warn('star old handler failed', err); }
+        }
+        // ensure the rating value persisted by old handler; if not, store this star value
+        if(!localStorage.getItem('rating') && this.dataset && this.dataset.star){
+          localStorage.setItem('rating', this.dataset.star);
+        }
+        localStorage.setItem('rating_locked','1');
+        setTimeout(lockStars, 250); // slight delay to allow re-rendering
+      };
+      // also make touchstart trigger rating
+      s.addEventListener('touchstart', function(ev){ ev.preventDefault(); this.click(); }, {passive:false});
+    });
+
+    // Make color-option keyboard accessible / touch friendly
+    document.querySelectorAll('.color-option').forEach((el)=>{
+      el.setAttribute('role','button');
+      el.setAttribute('tabindex','0');
+      el.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); el.click(); } });
+    });
+
+    // Adjust myOrdersPanel sizing on very small devices
+    function adjustMyOrdersForViewport(){
+      const mp = document.getElementById('myOrdersPanel');
+      if(!mp) return;
+      if(window.innerWidth < 480){
+        mp.style.left = '8px'; mp.style.right = '8px'; mp.style.width = 'auto'; mp.style.top = '60px'; mp.style.maxHeight = 'calc(100vh - 80px)';
+      } else { mp.style.left = ''; mp.style.right = '15px'; mp.style.width = ''; mp.style.top = '60px'; }
+    }
+    window.addEventListener('resize', adjustMyOrdersForViewport);
+    adjustMyOrdersForViewport();
+
+    // enable smooth touch scrolling
+    ['#myOrdersPanel', '.modal-content', '#ratingGraphPanel'].forEach(sel=>{
+      document.querySelectorAll(sel).forEach(el=>{ el.style['-webkit-overflow-scrolling']='touch'; el.style['touch-action']='pan-y'; });
+    });
+  });
+})();
 </script>
 
 </body>
