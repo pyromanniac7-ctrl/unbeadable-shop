@@ -199,22 +199,92 @@ button:hover { background: var(--accent-hover) !important; }
     -webkit-tap-highlight-color: transparent;
   }
 }
-/* Global touch improvements (applies everywhere) */
+/* Global touch improvements (applies everywhere) - ENHANCED */
 * {
   -webkit-tap-highlight-color: rgba(0,0,0,0.1);
 }
 button, input, .color-option, .star {
   touch-action: manipulation;
 }
+/* Enhanced touch targets for ALL buttons - DESKTOP & MOBILE */
+button {
+  min-height: 44px;
+  min-width: 44px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+/* Touch feedback animation for all interactive elements */
+button:active, .color-option:active, .star:active, .adminOrderBtn:active, .deleteBtn:active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
+}
+/* Ensure proper spacing for touch */
+.card button {
+  margin-top: 12px;
+}
+/* Better touch for modal buttons */
+.modal-content button {
+  min-height: 48px;
+  margin: 8px 4px;
+  touch-action: manipulation;
+}
+/* Input fields touch-friendly */
+input {
+  min-height: 44px;
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+  touch-action: manipulation;
+}
+/* Color options enhanced touch */
+.color-option {
+  min-width: 44px;
+  min-height: 44px;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* Stars enhanced touch */
+.star {
+  min-width: 32px;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* Admin buttons touch-friendly */
+.adminOrderBtn {
+  touch-action: manipulation;
+  min-height: 44px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* Delete buttons touch-friendly */
+.deleteBtn {
+  touch-action: manipulation;
+  min-height: 44px;
+  user-select: none;
+  -webkit-user-select: none;
+}
 </style>
 </head>
 <body>
 <div id="ratingBox">
-  <span class="star" data-star="1" style="touch-action: manipulation;">★</span>
-  <span class="star" data-star="2" style="touch-action: manipulation;">★</span>
-  <span class="star" data-star="3" style="touch-action: manipulation;">★</span>
-  <span class="star" data-star="4" style="touch-action: manipulation;">★</span>
-  <span class="star" data-star="5" style="touch-action: manipulation;">★</span>
+  <span class="star" data-star="1">★</span>
+  <span class="star" data-star="2">★</span>
+  <span class="star" data-star="3">★</span>
+  <span class="star" data-star="4">★</span>
+  <span class="star" data-star="5">★</span>
 </div>
 <div id="ratingGraphPanel">
   <div class="avgRating" id="avgRating">Average: 0 ★</div>
@@ -222,17 +292,17 @@ button, input, .color-option, .star {
     <!-- bars will be rendered here (5→1) -->
   </div>
 </div>
-<button id="toggleRatingGraph" style="touch-action: manipulation;">Ratings</button>
+<button id="toggleRatingGraph">Ratings</button>
 <!-- ADDED: badge element inside/next to the button (additive only) -->
-<button id="myOrdersBtn" aria-haspopup="true" aria-expanded="false" style="touch-action: manipulation;">My Orders <span id="myOrdersBadge">0</span></button>
+<button id="myOrdersBtn" aria-haspopup="true" aria-expanded="false">My Orders <span id="myOrdersBadge">0</span></button>
 <div id="myOrdersPanel" aria-hidden="true">
   <h3>My Orders</h3>
   <!-- ADDED: lookup controls (additive only) -->
   <div style="margin-bottom:10px;">
     <input id="lookupInput" placeholder="Order code, name, or email" style="width:100%; padding:8px; margin-bottom:6px; box-sizing:border-box;">
     <div style="display:flex; gap:6px;">
-      <button id="lookupBtn" style="flex:1; width:auto; padding:8px; touch-action: manipulation;">Find</button>
-      <button id="clearLookupBtn" style="flex:1; width:auto; padding:8px; background:#6b7280; touch-action: manipulation;">Clear</button>
+      <button id="lookupBtn" style="flex:1; width:auto; padding:8px;">Find</button>
+      <button id="clearLookupBtn" style="flex:1; width:auto; padding:8px; background:#6b7280;">Clear</button>
     </div>
   </div>
   <div id="myOrders"></div>
@@ -242,7 +312,7 @@ button, input, .color-option, .star {
 <div id="customizeContainer" aria-hidden="false">
   <div class="inner">
     <div style="margin-top:10px; text-align:center;">
-      <button id="customizeToggle" style="width:auto; padding:8px 12px; border-radius:8px; touch-action: manipulation;">Customize</button>
+      <button id="customizeToggle" style="width:auto; padding:8px 12px; border-radius:8px;">Customize</button>
     </div>
     <!-- Color picker panel for customization (hidden until Customize pressed) -->
     <div id="customizePanel" style="display:none; margin-top:12px;">
@@ -264,13 +334,13 @@ button, input, .color-option, .star {
 <div id="items"></div>
 <p><strong>Total:</strong> $<span id="total">0.00</span></p>
 <input id="name" placeholder="Your name">
-<button id="checkout" style="touch-action: manipulation;">Place Order</button>
+<button id="checkout">Place Order</button>
 </div>
 <div id="admin">
 <h2>Admin Panel</h2>
 <input id="adminEmail" placeholder="Admin email">
 <input id="adminPass" type="password" placeholder="Admin password">
-<button id="adminLogin" style="touch-action: manipulation;">Login</button>
+<button id="adminLogin">Login</button>
 <div id="orders"></div>
 </div>
 </div>
@@ -278,32 +348,32 @@ button, input, .color-option, .star {
 <div class="modal-content">
 <h3>Select up to 5 colors</h3>
 <div class="color-picker" id="colorPicker"></div>
-<button id="confirmColors" style="touch-action: manipulation;">Add to Cart</button>
-<button id="closeModal" style="touch-action: manipulation;">Cancel</button>
+<button id="confirmColors">Add to Cart</button>
+<button id="closeModal">Cancel</button>
 </div>
 </div>
 <div id="tipModal" class="modal">
 <div class="modal-content">
 <h3>Would you like to leave a tip?</h3>
-<button data-tip="1" style="touch-action: manipulation;">$1</button>
-<button data-tip="2" style="touch-action: manipulation;">$2</button>
-<button data-tip="3" style="touch-action: manipulation;">$3</button>
-<button data-tip="0" style="touch-action: manipulation;">Skip</button>
+<button data-tip="1">$1</button>
+<button data-tip="2">$2</button>
+<button data-tip="3">$3</button>
+<button data-tip="0">Skip</button>
 </div>
 </div>
 <div id="extraModal" class="modal">
 <div class="modal-content">
 <p>You picked more than 5 colors. Each extra color costs $0.25. Add anyway?</p>
-<button id="extraYes" style="touch-action: manipulation;">Yes</button>
-<button id="extraNo" style="touch-action: manipulation;">No</button>
+<button id="extraYes">Yes</button>
+<button id="extraNo">No</button>
 </div>
 </div>
 <!-- DELETE CONFIRMATION MODAL (added) -->
 <div id="deleteModal" class="modal">
   <div class="modal-content">
     <p>Do you want to delete this order?</p>
-    <button id="deleteYes" style="touch-action: manipulation;">Yes</button>
-    <button id="deleteNo" style="touch-action: manipulation;">No</button>
+    <button id="deleteYes">Yes</button>
+    <button id="deleteNo">No</button>
   </div>
 </div>
 <script type="module">
@@ -342,7 +412,7 @@ const extraModal = document.getElementById("extraModal");
 const extraYes = document.getElementById("extraYes");
 const extraNo = document.getElementById("extraNo");
 const toggleRatingGraph = document.getElementById("toggleRatingGraph");
-const nameInput = document.getElementById("name"); // small helpful variable
+const nameInput = document.getElementById("name");
 // Lookup controls (ADDED)
 const lookupInput = document.getElementById("lookupInput");
 const lookupBtn = document.getElementById("lookupBtn");
@@ -361,11 +431,10 @@ const customizeContainer = document.getElementById("customizeContainer");
 let colors = ["Red","Blue","Green","Yellow","Purple","Orange","Pink","Black","White","Cyan","Lime"];
 let cart=[], selectedBracelet="", selectedPrice=0, selectedColors=[], pendingExtra=[];
 let adminLoggedIn = false;
-let ordersCache = []; // store latest snapshot docs to allow re-rendering on auth changes
-let currentLookup = ""; // ADDED: filters My Orders by code/name/email if filled
+let ordersCache = [];
+let currentLookup = "";
 // --- Ensure Auth Persistence (so admin stays logged in across reloads) ---
 setPersistence(auth, browserLocalPersistence).catch(e=>{
-  // If persistence setting fails, ignore (browser will default)
   console.warn("setPersistence failed:", e);
 });
 /* -----------------------------
@@ -410,23 +479,20 @@ function writeLocalOrders(arr){
 function addLocalOrder(order){
   try {
     const arr = readLocalOrders();
-    // avoid duplicates by orderCode if present
     if(order.orderCode && arr.some(o => o.orderCode === order.orderCode)) return;
     arr.unshift(order);
     writeLocalOrders(arr);
-    renderLocalOrders(); // immediate render
-    updateMyOrdersBadge(); // refresh badge
+    renderLocalOrders();
+    updateMyOrdersBadge();
   } catch(e){ console.warn("addLocalOrder failed", e); }
 }
 function renderLocalOrders(){
   try {
     if(!myOrdersDiv) return;
-    // Create or update local container at top
     let container = document.getElementById('localOrdersContainer');
     if(!container){
       container = document.createElement('div');
       container.id = 'localOrdersContainer';
-      // insert at the top of myOrdersDiv
       myOrdersDiv.parentNode.insertBefore(container, myOrdersDiv);
     }
     const local = readLocalOrders();
@@ -447,17 +513,13 @@ function renderLocalOrders(){
 }
 /* ----------------------------
    STAR CLICK: allow changes, save locally, push to Firestore ratings collection, update UI instantly
-   (unchanged behavior but kept here so everything stays in one place)
    ---------------------------- */
 stars.forEach(star => {
   star.onclick = async () => {
     const rating = Number(star.dataset.star);
-    // update local UI
     stars.forEach(s => s.classList.remove("active"));
     stars.forEach(s => { if(Number(s.dataset.star) <= rating) s.classList.add("active"); });
-    // persist locally
     localStorage.setItem("rating", String(rating));
-    // save user rating to Firestore (ratings collection, docId = userRatingId)
     try {
       await setDoc(doc(db, "ratings", userRatingId), {
         rating: rating,
@@ -471,7 +533,7 @@ stars.forEach(star => {
   };
 });
 /* ----------------------------
-   Shop Products (unchanged behavior)
+   Shop Products
    ---------------------------- */
 const products = [
 {name:"Normal Bracelet",price:0.75},{name:"Triple Normal",price:0.95},{name:"Fishtail",price:0.85},{name:"Inverted Fishtail",price:0.95},
@@ -496,14 +558,13 @@ const braceletImages = {
   "Random Color Bracelet": "https://i.imgur.com/EncMExO.jpeg",
   "Mystery Bag Bracelet": "https://i.imgur.com/EncMExO.jpeg"
 };
-// --- Color Picker & Cart functions (unchanged) ---
+// --- Color Picker & Cart functions ---
 function renderColors(){
   const picker = document.getElementById("colorPicker");
   picker.innerHTML="";
   colors.forEach(c=>{
     const d = document.createElement("div");
     d.className="color-option"; d.style.background=c.toLowerCase();
-    d.style.touchAction = 'manipulation';
     d.onclick = ()=>{
       if(selectedColors.includes(c)) return;
       if(selectedColors.length<5){ selectedColors.push(c); d.classList.add("selected"); }
@@ -521,7 +582,7 @@ function renderCart(){
   items.innerHTML="";
   let t=0;
   cart.forEach((x,i)=>{
-    items.innerHTML+=`<p><b>${x.name}</b> - $${x.price.toFixed(2)}<br>${x.colors.join(", ")}<button class="deleteBtn" onclick="removeFromCart(${i})" style="touch-action: manipulation;">Remove</button></p>`;
+    items.innerHTML+=`<p><b>${x.name}</b> - ${x.price.toFixed(2)}<br>${x.colors.join(", ")}<button class="deleteBtn" onclick="removeFromCart(${i})">Remove</button></p>`;
     t+=x.price;
   });
   total.innerText=t.toFixed(2);
@@ -534,8 +595,8 @@ products.forEach(p=>{
   c.innerHTML=`
     <img class="bracelet-img" src="${imgSrc}" alt="${p.name}">
     <h3>${p.name}</h3>
-    <div class="price">$${p.price.toFixed(2)}</div>
-    <button style="touch-action: manipulation;">Add</button>
+    <div class="price">${p.price.toFixed(2)}</div>
+    <button>Add</button>
   `;
   c.querySelector("button").onclick = ()=>{
     if(p.name.includes("Random") || p.name.includes("Mystery")){
@@ -570,11 +631,8 @@ tipModal.querySelectorAll("button").forEach(b=>{
     tipModal.style.display="none";
     const userName = nameInput.value.trim();
     if(!userName) return alert("Please enter your name!");
-    // save the name locally so My Orders is prefilled & persists
     localStorage.setItem('unbeadable_name', userName);
-    // create orderCode
     const orderCode = generateOrderCode();
-    // Build localOrder object to store locally immediately (mirror)
     const localOrder = {
       name: userName,
       cart: JSON.parse(JSON.stringify(cart)),
@@ -586,7 +644,6 @@ tipModal.querySelectorAll("button").forEach(b=>{
       orderCode: orderCode,
       contactEmail: null
     };
-    // Try saving to Firestore, but always mirror locally so My Orders will show immediately
     try {
       const ref = await addDoc(collection(db,"orders"),{
         name: userName,
@@ -596,25 +653,21 @@ tipModal.querySelectorAll("button").forEach(b=>{
         tip:tip,
         time:new Date(),
         clientId: clientId,
-        orderCode: orderCode, /* ADDED: save order code */
-        contactEmail: null /* optional placeholder if you want to add email later */
+        orderCode: orderCode,
+        contactEmail: null
       });
-      // push local mirror (ensures it shows even if Firestore rules block reads)
       addLocalOrder(localOrder);
       cart=[]; renderCart();
-      // show order code & copy to clipboard (ADDED)
       try {
         await navigator.clipboard.writeText(orderCode);
         alert(`Order placed! Your order code: ${orderCode}\n(it was copied to your clipboard)`);
       } catch(e) {
         alert(`Order placed! Your order code: ${orderCode}\n(copy failed — please copy it manually)`);
       }
-      // Immediately re-render (in case onSnapshot arrives a bit later)
       renderOrdersFromCache();
-      updateMyOrdersBadge(); // update badge right away
+      updateMyOrdersBadge();
     } catch(e) {
       console.error("Failed to place order:", e);
-      // Even if Firestore write fails (or reads are blocked), still mirror locally so the user sees their order
       addLocalOrder(localOrder);
       cart=[]; renderCart();
       alert("Order placed locally (server save failed). Your order code: " + orderCode);
@@ -624,13 +677,11 @@ tipModal.querySelectorAll("button").forEach(b=>{
   };
 });
 /* ----------------------------
-   Admin login/logout (button toggles) (unchanged behavior) ---------------------------- */
+   Admin login/logout (button toggles) ---------------------------- */
 adminLogin.onclick = async ()=>{
   if (!adminLoggedIn) {
-    // attempt sign in
     try {
       await signInWithEmailAndPassword(auth, adminEmail.value, adminPass.value);
-      // success handled by onAuthStateChanged
     } catch(e){ alert("Admin login failed"); }
   } else {
     try {
@@ -642,7 +693,7 @@ adminLogin.onclick = async ()=>{
     } catch(e) { console.warn("signOut failed", e); }
   }
 };
-// --- onAuthStateChanged: keeps adminLoggedIn true when Firebase has a session (unchanged behavior) ---
+// --- onAuthStateChanged: keeps adminLoggedIn true when Firebase has a session ---
 onAuthStateChanged(auth, (user) => {
   if (user) {
     adminLoggedIn = true;
@@ -670,7 +721,6 @@ function renderOrdersFromCache(){
   myOrdersDiv.innerHTML = "";
   const currentName = nameInput.value.trim();
   let myCount = 0;
-  // normalize lookup
   const lookup = (currentLookup || "").trim();
   ordersCache.forEach(docSnap=>{
     const data = docSnap.data();
@@ -679,14 +729,12 @@ function renderOrdersFromCache(){
     const itemsList = Array.isArray(data.cart) ? data.cart.map(c=>`${c.name} (${c.colors ? c.colors.join(", ") : ""})`).join("<br>") : "";
     const time = data.time && data.time.toDate ? data.time.toDate().toLocaleString() : (data.time && data.time.seconds ? new Date(data.time.seconds*1000).toLocaleString() : "");
     const wrapper = document.createElement("div");
-    // show orderCode if available (ADDED)
     const oc = data.orderCode ? ` <small style="color:#374151">[${data.orderCode}]</small>` : "";
-    wrapper.innerHTML = `<p><b>${data.name || "Unknown"}</b>${oc} - $${totalPrice} - Tip: $${data.tip || 0} - <span class="${data.status==='done'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
+    wrapper.innerHTML = `<p><b>${data.name || "Unknown"}</b>${oc} - ${totalPrice} - Tip: ${data.tip || 0} - <span class="${data.status==='done'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
     if(adminLoggedIn){
       const btn = document.createElement("button");
       btn.className = "adminOrderBtn";
       btn.textContent = "Mark Complete";
-      btn.style.touchAction = 'manipulation';
       btn.addEventListener("click", async () => {
         try {
           await updateDoc(doc(db, "orders", id), { status: "complete" });
@@ -696,12 +744,10 @@ function renderOrdersFromCache(){
         }
       });
       wrapper.querySelector("p").appendChild(btn);
-      // Delete Button (added)
       const delBtn = document.createElement("button");
       delBtn.className = "adminOrderBtn";
       delBtn.style.background = "#ef4444";
       delBtn.textContent = "Delete";
-      delBtn.style.touchAction = 'manipulation';
       delBtn.addEventListener("click", () => {
         orderToDeleteId = id;
         deleteModal.style.display = "flex";
@@ -709,11 +755,8 @@ function renderOrdersFromCache(){
       wrapper.querySelector("p").appendChild(delBtn);
       ordersDiv.appendChild(wrapper);
     }
-    // Determine if this order should show in My Orders:
     let showInMyOrders = false;
-    // match by typed name or by clientId
     if((currentName && data.name === currentName) || (data.clientId && data.clientId === clientId)) showInMyOrders = true;
-    // If a lookup is active, override: match orderCode OR name OR contactEmail OR document id (ADDED)
     if(lookup){
       const l = lookup.toLowerCase();
       const matchesCode = data.orderCode && String(data.orderCode).toLowerCase() === l;
@@ -721,21 +764,18 @@ function renderOrdersFromCache(){
       const matchesEmail = data.contactEmail && String(data.contactEmail).toLowerCase() === l;
       const matchesId = id === lookup;
       if(matchesCode || matchesName || matchesEmail || matchesId) showInMyOrders = true;
-      else showInMyOrders = false; // when lookup present, show only matches
+      else showInMyOrders = false;
     }
     if(showInMyOrders){
       myCount++;
       const myWrap = document.createElement("div");
-      // highlight orders created by this client
       const youBadge = (data.clientId && data.clientId === clientId) ? " <small>(You)</small>" : "";
       const oc2 = data.orderCode ? ` <small style="color:#374151">[${data.orderCode}]</small>` : "";
-      myWrap.innerHTML = `<p><b>${data.name || "Unknown"}</b>${youBadge}${oc2} - $${totalPrice} - Tip: $${data.tip || 0} - <span class="${data.status==='done'?'doneBadge': data.status==='complete'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
+      myWrap.innerHTML = `<p><b>${data.name || "Unknown"}</b>${youBadge}${oc2} - ${totalPrice} - Tip: ${data.tip || 0} - <span class="${data.status==='done'?'doneBadge': data.status==='complete'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr>`;
       myOrdersDiv.appendChild(myWrap);
     }
   });
-  // After rendering Firestore matches, also render local mirrored orders (so they show even when reads blocked)
   renderLocalOrders();
-  // update badge count to number of matching orders for this user/browser (includes local orders)
   updateMyOrdersBadge(myCount);
 }
 /* ----------------------------
@@ -743,9 +783,7 @@ function renderOrdersFromCache(){
    Combines Firestore count (passed in) with local mirror count for a total.
    ---------------------------- */
 function updateMyOrdersBadge(count){
-  // local count
   const localCount = readLocalOrders().length || 0;
-  // if count not provided, compute from ordersCache
   if(typeof count === 'undefined'){
     const currentName = nameInput.value.trim();
     count = ordersCache.reduce((acc,docSnap)=>{
@@ -759,28 +797,25 @@ function updateMyOrdersBadge(count){
   if(myOrdersBadge){
     const prev = myOrdersBadge.innerText;
     myOrdersBadge.innerText = display;
-    // small "pop" when number increases
     if(Number(totalCount) > Number(prev || 0)){
       myOrdersBadge.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.18)' }, { transform: 'scale(1)' }], { duration: 300, easing: 'ease-out' });
     }
-    // hide badge when zero
     myOrdersBadge.style.display = (totalCount === 0 ? 'none' : 'inline-flex');
   }
 }
-// initialize badge hidden if zero
 myOrdersBadge.style.display = 'none';
 /* ----------------------------
-   Real-time Orders: cache docs and render via renderOrdersFromCache (unchanged but essential)
+   Real-time Orders: cache docs and render via renderOrdersFromCache
    We also update the badge on snapshot so changes appear instantly
    ---------------------------- */
 onSnapshot(collection(db,"orders"), snapshot=>{
   ordersCache = [];
   snapshot.forEach(doc => ordersCache.push(doc));
   renderOrdersFromCache();
-  updateMyOrdersBadge(); // ensure badge changes live
+  updateMyOrdersBadge();
 });
 /* ----------------------------
-   Delete modal handlers (unchanged)
+   Delete modal handlers
    ---------------------------- */
 deleteNo.onclick = () => {
   orderToDeleteId = null;
@@ -797,22 +832,17 @@ deleteYes.onclick = async () => {
     alert("Failed to delete order.");
   }
 };
-// --- Toggle Panels (unchanged) ---
-// keep existing behavior but also cause the customize position & render to update
+// --- Toggle Panels ---
 myOrdersBtn.onclick = ()=>{
   const isOpen = myOrdersPanel.style.display === "block";
-  // toggle aria-expanded
   myOrdersPanel.style.display = isOpen ? "none" : "block";
   myOrdersBtn.setAttribute('aria-expanded', String(!isOpen));
   myOrdersPanel.setAttribute('aria-hidden', String(isOpen));
-  // ensure immediate re-render and reposition after toggle
   setTimeout(()=>{ updateCustomizePosition(); renderOrdersFromCache(); }, 45);
 };
 /* ----------------------------
-   RATINGS AGGREGATION: AppStore-like bar graph (live) ---
-   (your existing listener updates the graph live)
+   RATINGS AGGREGATION: AppStore-like bar graph (live)
    ---------------------------- */
-// initialize bars (5..1)
 const ratingBarsContainer = document.getElementById('ratingBars');
 function buildEmptyBars(){
   ratingBarsContainer.innerHTML = '';
@@ -824,9 +854,8 @@ function buildEmptyBars(){
   }
 }
 buildEmptyBars();
-// Listen to ratings collection (realtime) and update graph
 onSnapshot(collection(db,"ratings"), snapshot=>{
-  const counts = [0,0,0,0,0]; // index 0=>1 star ... 4=>5 star
+  const counts = [0,0,0,0,0];
   let sum=0, total=0;
   snapshot.forEach(docSnap=>{
     const d = docSnap.data();
@@ -839,16 +868,12 @@ onSnapshot(collection(db,"ratings"), snapshot=>{
   });
   const avg = total ? (sum/total).toFixed(2) : "0.00";
   document.getElementById('avgRating').innerText = `Average: ${avg} ★`;
-  // update bar elements: we built them 5->1 (descending). counts index is 1->5 at 0..4
-  // need total to compute percent
   const bars = ratingBarsContainer.querySelectorAll('.bar');
-  // bars are in descending order data-star 5..1
   bars.forEach(barEl => {
     const star = Number(barEl.getAttribute('data-star'));
     const c = counts[star-1] || 0;
     const pct = total ? (c/total*100) : 0;
     barEl.style.width = pct + '%';
-    // update the corresponding count text
     const parent = barEl.closest('.barWrap');
     if(parent){
       const countEl = parent.querySelector('.barCount');
@@ -858,20 +883,17 @@ onSnapshot(collection(db,"ratings"), snapshot=>{
 });
 /* ----------------------------
    LIVE: Listen to this user's rating doc so their star UI updates if changed from another browser/device.
-   This ensures the star UI "changes with every rating" for your user entry.
    ---------------------------- */
 onSnapshot(doc(db, "ratings", userRatingId), docSnap => {
   if(!docSnap.exists) return;
   const d = docSnap.data();
   const r = Number(d.rating) || 0;
-  // update star UI to reflect current saved rating for this user
   stars.forEach(s => s.classList.remove("active"));
   stars.forEach(s => { if(Number(s.dataset.star) <= r) s.classList.add("active"); });
-  // keep localStorage in sync (so future page loads remember it)
   localStorage.setItem("rating", String(r));
 });
 /* ----------------------------
-   Ratings toggle button already present (keeps original behaviour but uses new graph)
+   Ratings toggle button
    ---------------------------- */
 toggleRatingGraph.onclick = async ()=>{
   const panel = document.getElementById("ratingGraphPanel");
@@ -879,29 +901,12 @@ toggleRatingGraph.onclick = async ()=>{
 };
 /* ----------------------------
    CUSTOMIZE PANEL LOGIC (ADDED)
-   - Adds color swatches under "My Orders" when Customize is clicked
-   - Selecting a color updates CSS variables to change the GUI accent
-   - White is intentionally excluded
-   - Accent choice is saved to localStorage and applied on load
-   - Position of the customize container is dynamically set to be exactly
-     3px below the My Orders button/panel and updated on resize/scroll
    ---------------------------- */
-// Palette for GUI customization (no white)
 const customizeColors = [
-  "#7c3aed", // original purple
-  "#ef4444", // red
-  "#10b981", // green
-  "#f59e0b", // amber
-  "#0ea5e9", // blue
-  "#ec4899", // pink
-  "#6366f1", // indigo
-  "#f97316", // orange
-  "#14b8a6", // teal
-  "#111827" // near-black (not white)
+  "#7c3aed", "#ef4444", "#10b981", "#f59e0b", "#0ea5e9",
+  "#ec4899", "#6366f1", "#f97316", "#14b8a6", "#111827"
 ];
-// utility: darken/lighten hex by percent (negative = darker)
 function shadeHex(hex, percent){
-  // hex like #rrggbb
   const num = parseInt(hex.slice(1),16);
   let r = (num >> 16) + Math.round(2.55 * percent);
   let g = (num >> 8 & 0x00FF) + Math.round(2.55 * percent);
@@ -911,67 +916,49 @@ function shadeHex(hex, percent){
   b = Math.max(0, Math.min(255, b));
   return "#" + ( (1 << 24) + (r << 16) + (g << 8) + b ).toString(16).slice(1);
 }
-// build customize swatches
 function buildCustomizePicker(){
   customizePicker.innerHTML = "";
   customizeColors.forEach(color => {
     const d = document.createElement('div');
     d.className = "color-option";
     d.style.background = color;
-    d.style.touchAction = 'manipulation';
     d.title = color;
     d.onclick = () => {
       applyAccentColor(color);
-      // highlight selection visually in picker
       customizePicker.querySelectorAll('.color-option').forEach(e=>e.classList.remove('selected'));
       d.classList.add('selected');
     };
     customizePicker.appendChild(d);
   });
 }
-// apply accent color across GUI by updating CSS variables and saving preference
 function applyAccentColor(hex){
-  // save
   localStorage.setItem('unbeadable_accent', hex);
-  // compute hover color a bit darker
   const hover = shadeHex(hex, -10);
   document.documentElement.style.setProperty('--accent', hex);
   document.documentElement.style.setProperty('--accent-hover', hover);
-  // also update selected borders for pickers that used .selected default color
-  // update any .color-option.selected border color if needed (not strictly required)
 }
-// read saved accent and apply
 const savedAccent = localStorage.getItem('unbeadable_accent');
 if(savedAccent){
   applyAccentColor(savedAccent);
-  // also mark picker selected later after build
 }
-// hook up toggle behavior
 customizeToggle.onclick = () => {
   customizePanel.style.display = customizePanel.style.display === "block" ? "none" : "block";
-  // on first open, build picker (idempotent)
   if(customizePicker.children.length === 0) {
     buildCustomizePicker();
-    // if saved accent exists, mark selected
     const saved = localStorage.getItem('unbeadable_accent');
     if(saved){
       customizePicker.querySelectorAll('.color-option').forEach(el=>{
-        // comparing lowercase hex strings
         if(el.style.background.toLowerCase() === saved.toLowerCase()) el.classList.add('selected');
       });
     }
   }
 };
-// build initial customize picker invisibly (optional)
 buildCustomizePicker();
 /* ----------------------------
    DYNAMIC POSITIONING: place customizeContainer exactly 3px under myOrdersBtn
-   and when the My Orders *panel* is visible place it 3px under the panel's bottom.
-   Runs on load, resize, scroll, and when you toggle My Orders.
    ---------------------------- */
 function updateCustomizePosition(){
   if(!customizeContainer || !myOrdersBtn) return;
-  // prefer to place under myOrdersPanel if it's visible, otherwise under button
   const panelVisible = window.getComputedStyle(myOrdersPanel).display !== 'none';
   let topPx;
   if(panelVisible){
@@ -982,7 +969,6 @@ function updateCustomizePosition(){
     topPx = Math.round(btnRect.bottom + 3);
   }
   customizeContainer.style.top = `${topPx}px`;
-  // clamp to viewport bottom
   const viewportHeight = window.innerHeight;
   const containerRect = customizeContainer.getBoundingClientRect();
   if(containerRect.bottom > viewportHeight - 8){
@@ -990,41 +976,32 @@ function updateCustomizePosition(){
     customizeContainer.style.top = `${Math.max(8, topPx - overflow)}px`;
   }
 }
-// run once on load (defer slightly to ensure layout ready)
 window.addEventListener('load', ()=>{
   updateCustomizePosition();
-  // if saved accent exists, mark selected visually now that picker is built
   const saved = localStorage.getItem('unbeadable_accent');
   if(saved && customizePicker.children.length){
     customizePicker.querySelectorAll('.color-option').forEach(el=>{
       if(el.style.background.toLowerCase() === saved.toLowerCase()) el.classList.add('selected');
     });
   }
-  // ensure local orders are shown right away
   renderLocalOrders();
   updateMyOrdersBadge();
 });
-// Update position on resize & scroll so the 3px gap stays correct and responsive
 window.addEventListener('resize', updateCustomizePosition);
 window.addEventListener('scroll', updateCustomizePosition);
-// also update when user toggles My Orders visibility (in case page changes)
 myOrdersBtn.addEventListener('click', ()=> {
-  // small timeout to allow layout changes to settle then update position
   setTimeout(updateCustomizePosition, 45);
 });
 /* ----------------------------
-   Ensure My Orders updates instantly when the name input changes (no reload)
+   Ensure My Orders updates instantly when the name input changes
    ---------------------------- */
 nameInput.addEventListener('input', () => {
-  // local store update so it persists & render refreshes
   localStorage.setItem('unbeadable_name', nameInput.value.trim());
   renderOrdersFromCache();
-  updateMyOrdersBadge(); // also refresh badge
+  updateMyOrdersBadge();
 });
 /* ----------------------------
    Lookup controls (ADDED)
-   - supports searching orders by order code, name, email, or Firestore id
-   - works without reloading and does not remove anything
    ---------------------------- */
 lookupBtn.addEventListener('click', () => {
   currentLookup = lookupInput.value.trim();
@@ -1037,25 +1014,12 @@ clearLookupBtn.addEventListener('click', () => {
   renderOrdersFromCache();
   updateMyOrdersBadge();
 });
-/* ----------------------------
-   END CUSTOMIZE & LOOKUP LOGIC
-   ---------------------------- */
 </script>
-<!--
-  Added script below (without removing anything from your original file).
-  This module-script ensures the Customize container is placed exactly 3px
-  under the My Orders *panel* when the panel is opened, and restored back
-  under the My Orders *button* when the panel is closed. It does not remove
-  or change any existing code — it only attaches an extra listener that
-  uses the DOM to reposition the customize container dynamically.
--->
 <script type="module">
-/* Extra listener (appends behavior; removes nothing) */
 const btn = document.getElementById('myOrdersBtn');
 const panel = document.getElementById('myOrdersPanel');
 const customize = document.getElementById('customizeContainer');
 function placeCustomizeUnderPanelOrButton() {
-  // allow other handlers to run first (existing onclick in your file toggles panel)
   setTimeout(() => {
     if (!btn || !panel || !customize) return;
     const panelVisible = window.getComputedStyle(panel).display !== 'none';
@@ -1066,7 +1030,6 @@ function placeCustomizeUnderPanelOrButton() {
       const btnRect = btn.getBoundingClientRect();
       customize.style.top = (Math.round(btnRect.bottom) + 3) + 'px';
     }
-    // ensure it doesn't overflow viewport bottom
     const viewportHeight = window.innerHeight;
     const cRect = customize.getBoundingClientRect();
     if (cRect.bottom > viewportHeight - 8) {
@@ -1075,17 +1038,11 @@ function placeCustomizeUnderPanelOrButton() {
     }
   }, 45);
 }
-// Attach listener without removing or changing existing handlers
 btn.addEventListener('click', placeCustomizeUnderPanelOrButton);
-// Run on load so initial placement is correct
 window.addEventListener('load', placeCustomizeUnderPanelOrButton);
 window.addEventListener('resize', placeCustomizeUnderPanelOrButton);
 window.addEventListener('scroll', placeCustomizeUnderPanelOrButton);
 </script>
-<!--
-  NEW ADDITIVE SCRIPT: makes Find actually query Firestore if needed and replaces header text with your image.
-  This script is intentionally non-destructive — it doesn't remove or alter your source text; it changes DOM at runtime.
--->
 <script type="module">
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, query, where, getDocs, getDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -1095,7 +1052,6 @@ const firebaseConfig = {
   projectId: "unbeadable-2e4f1",
   appId: "1:904715339138:web:0879a7b347805691d53b9b"
 };
-// reuse existing app if present, otherwise initialize a new one (keeps behavior safe)
 let app2;
 if (getApps && getApps().length) {
   app2 = getApps()[0];
@@ -1103,7 +1059,6 @@ if (getApps && getApps().length) {
   app2 = initializeApp(firebaseConfig);
 }
 const db2 = getFirestore(app2);
-// Replace header text with the image you asked for (runtime DOM change; file unchanged)
 try {
   const header = document.querySelector('header');
   if (header) {
@@ -1112,17 +1067,14 @@ try {
 } catch(e){
   console.warn("Header image replacement failed:", e);
 }
-// Utility used to build order HTML (keeps consistent look)
 function buildOrderHTML(id, data, highlightYou=false){
   const totalPrice = (Array.isArray(data.cart) ? data.cart.reduce((a,b)=>a+(b.price||0),0) : 0).toFixed(2);
   const itemsList = Array.isArray(data.cart) ? data.cart.map(c=>`${c.name} (${c.colors ? c.colors.join(", ") : ""})`).join("<br>") : "";
-  const time = data.time && data.time.toDate ? data.time.toDate().toLocaleString() : (data.time && data.time.seconds ? new Date(data.time.seconds*1000).toLocaleString() : "";
+  const time = data.time && data.time.toDate ? data.time.toDate().toLocaleString() : (data.time && data.time.seconds ? new Date(data.time.seconds*1000).toLocaleString() : "");
   const oc = data.orderCode ? ` <small style="color:#374151">[${data.orderCode}]</small>` : "";
   const youBadge = highlightYou ? " <small>(You)</small>" : "";
-  return `<div><p><b>${data.name || "Unknown"}</b>${youBadge}${oc} - $${totalPrice} - Tip: $${data.tip || 0} - <span class="${data.status==='done'?'doneBadge': data.status==='complete'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr></div>`;
+  return `<div><p><b>${data.name || "Unknown"}</b>${youBadge}${oc} - ${totalPrice} - Tip: ${data.tip || 0} - <span class="${data.status==='done'?'doneBadge': data.status==='complete'?'doneBadge':'pendingBadge'}">${data.status}</span><br>${itemsList}<br><small>${time}</small></p><hr></div>`;
 }
-// Perform a lookup (searches orderCode, name, contactEmail, and doc id)
-// If matches in local cache already exist they will be shown by existing render logic; this is a server-side fallback.
 async function performLookupServer(lookup){
   const field = (lookup || "").trim();
   const outDiv = document.getElementById('myOrders');
@@ -1135,44 +1087,31 @@ async function performLookupServer(lookup){
   }
   outDiv.innerHTML = '<p>Searching...</p>';
   const results = new Map();
-  // Query by orderCode
   try {
     const q1 = query(collection(db2,'orders'), where('orderCode','==', field));
     const s1 = await getDocs(q1);
     s1.forEach(d => results.set(d.id, d));
-  } catch(e){
-    console.warn("orderCode query failed:", e);
-  }
-  // Query by name
+  } catch(e){ console.warn("orderCode query failed:", e); }
   try {
     const q2 = query(collection(db2,'orders'), where('name','==', field));
     const s2 = await getDocs(q2);
     s2.forEach(d => results.set(d.id, d));
-  } catch(e){
-    console.warn("name query failed:", e);
-  }
-  // Query by contactEmail
+  } catch(e){ console.warn("name query failed:", e); }
   try {
     const q3 = query(collection(db2,'orders'), where('contactEmail','==', field));
     const s3 = await getDocs(q3);
     s3.forEach(d => results.set(d.id, d));
-  } catch(e){
-    console.warn("email query failed:", e);
-  }
-  // Try fetching by doc id
+  } catch(e){ console.warn("email query failed:", e); }
   try {
     const docRef = doc(db2,'orders', field);
     const dd = await getDoc(docRef);
     if(dd.exists()) results.set(dd.id, dd);
-  } catch(e){
-    // ignore
-  }
+  } catch(e){}
   if(results.size === 0){
     outDiv.innerHTML = `<p>No orders found for "<b>${field}</b>".</p>`;
     if(badge){ badge.innerText = '0'; badge.style.display = 'none'; }
     return;
   }
-  // Build HTML
   let html = '';
   results.forEach(docSnap => {
     const d = docSnap.data();
@@ -1180,7 +1119,6 @@ async function performLookupServer(lookup){
     html += buildOrderHTML(docSnap.id, d, highlight);
   });
   outDiv.innerHTML = html;
-  // Update badge
   if(badge){
     const cnt = results.size;
     badge.innerText = cnt > 99 ? '99+' : String(cnt);
@@ -1188,22 +1126,17 @@ async function performLookupServer(lookup){
     badge.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }], { duration: 280, easing: 'ease-out' });
   }
 }
-// Wire the Find button to try local render first, then do server lookup if nothing found locally
 const findButton = document.getElementById('lookupBtn');
 if(findButton){
   findButton.addEventListener('click', async () => {
     const lookupVal = (document.getElementById('lookupInput') || {}).value || '';
-    // first, try to trigger the existing render which uses currentLookup (this preserves behavior)
     try {
-      // set global currentLookup if available (the main module defines it in its own scope),
-      // but since we can't access that local variable here, call server lookup directly to be robust.
       await performLookupServer(lookupVal.trim());
     } catch(e){
       console.error("Lookup failed:", e);
     }
   });
 }
-// Allow Enter key in the lookup input to trigger search
 const lookupInputEl = document.getElementById('lookupInput');
 if(lookupInputEl){
   lookupInputEl.addEventListener('keydown', async (ev) => {
@@ -1213,20 +1146,16 @@ if(lookupInputEl){
     }
   });
 }
-// Clear button: clear lookup and optionally re-run (call existing render via UI by clicking Clear)
 const clearBtn = document.getElementById('clearLookupBtn');
 if(clearBtn){
   clearBtn.addEventListener('click', () => {
     const inp = document.getElementById('lookupInput');
     if(inp) inp.value = '';
-    // trigger the existing UI handler: that one sets currentLookup etc. We cannot access that var,
-    // so simply show a helpful message and let the realtime listener keep My Orders list up-to-date.
     document.getElementById('myOrders').innerHTML = '<p>Lookup cleared. Your orders (if any) are shown above by name or by client browser.</p>';
     const badge = document.getElementById('myOrdersBadge');
     if(badge) badge.style.display = badge.innerText === '0' ? 'none' : 'inline-flex';
   });
 }
-// Keep script non-destructive — done.
 </script>
 </body>
 </html>
