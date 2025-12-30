@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes"/>
 <title>Unbeadable Shop</title>
 <style>
 /* (original styles unchanged) */
@@ -111,24 +111,100 @@ button:hover { background: var(--accent-hover) !important; }
   /* on small screens move customize to left so it doesn't overlap */
   #customizeContainer { right: 15px; top: auto; bottom: 15px; width: 260px; }
 }
-/* ADDED: Mobile and touchscreen friendly adjustments (only additions, no removals) */
+/* ADDED: Enhanced mobile & touchscreen improvements (only additions, no removals) */
 @media (max-width: 768px) {
-  .grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
-  .card { padding: 15px; }
-  button { padding: 12px; font-size: 16px; min-height: 48px; } /* Larger tap targets */
-  .color-option { width: 40px; height: 40px; } /* Larger for touch */
-  .star { font-size: 24px; } /* Larger stars for touch */
-  #myOrdersBtn { padding: 12px 16px; font-size: 16px; min-width: 120px; }
-  #myOrdersPanel { width: calc(100vw - 30px); right: 15px; max-height: 80vh; padding: 12px; }
-  #ratingBox { right: 15px; top: 70px; padding: 10px; font-size: 16px; }
-  #toggleRatingGraph { right: 15px; top: 15px; padding: 10px 12px; font-size: 14px; }
-  #ratingGraphPanel { top: 120px; right: 15px; width: calc(100vw - 30px); padding: 10px; }
-  .modal-content { width: 95%; max-width: none; padding: 15px; }
-  .color-picker { gap: 15px; }
-  #customizeContainer { width: calc(100vw - 30px); right: 15px; bottom: 15px; top: auto; }
-  input { padding: 12px; font-size: 16px; } /* Larger inputs for touch */
-  .adminOrderBtn { padding: 8px 10px; font-size: 14px; min-height: 44px; }
-  .deleteBtn { padding: 8px; font-size: 14px; min-height: 44px; }
+  .grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+  .card { padding: 16px; }
+  button { 
+    padding: 14px; 
+    font-size: 17px; 
+    min-height: 52px; 
+    touch-action: manipulation;
+  }
+  .color-option { 
+    width: 48px; 
+    height: 48px; 
+    touch-action: manipulation;
+  }
+  .star { 
+    font-size: 28px; 
+    touch-action: manipulation;
+  }
+  #myOrdersBtn { 
+    padding: 14px 18px; 
+    font-size: 17px; 
+    min-height: 52px;
+    min-width: 140px;
+    touch-action: manipulation;
+  }
+  #myOrdersPanel { 
+    width: calc(100vw - 30px); 
+    right: 15px; 
+    max-height: 80vh; 
+    padding: 14px; 
+    top: 70px;
+  }
+  #ratingBox { 
+    right: 15px; 
+    top: 80px; 
+    padding: 12px 16px; 
+    gap: 10px;
+  }
+  #toggleRatingGraph { 
+    right: 15px; 
+    top: 15px; 
+    padding: 12px 16px; 
+    font-size: 15px; 
+    min-height: 52px;
+  }
+  #ratingGraphPanel { 
+    top: 140px; 
+    right: 15px; 
+    width: calc(100vw - 30px); 
+    padding: 14px; 
+  }
+  .modal-content { 
+    width: 92%; 
+    max-width: none; 
+    padding: 20px; 
+  }
+  .color-picker { gap: 18px; }
+  #customizeContainer { 
+    width: calc(100vw - 30px); 
+    right: 15px; 
+    bottom: 15px; 
+    top: auto; 
+  }
+  input { 
+    padding: 14px; 
+    font-size: 17px; 
+    min-height: 52px;
+    box-sizing: border-box;
+  }
+  .adminOrderBtn { 
+    padding: 10px 12px; 
+    font-size: 15px; 
+    min-height: 48px; 
+    margin-left: 6px;
+    touch-action: manipulation;
+  }
+  .deleteBtn { 
+    padding: 10px; 
+    font-size: 15px; 
+    min-height: 48px; 
+    touch-action: manipulation;
+  }
+  /* Ensure all interactive elements have sufficient touch target */
+  button, .color-option, .star, #myOrdersBtn, .adminOrderBtn, .deleteBtn {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+/* Global touch improvements (applies everywhere) */
+* {
+  -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+}
+button, input, .color-option, .star {
+  touch-action: manipulation;
 }
 </style>
 </head>
