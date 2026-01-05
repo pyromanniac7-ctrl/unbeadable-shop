@@ -1157,5 +1157,295 @@ if(clearBtn){
   });
 }
 </script>
+<!-- ===== ADD-ON (RELIABLE): Cart button + Dragon Scale extra-width control (non-destructive) ===== -->
+<style>
+  /* Cart floating button */
+  #goCartBtn {
+    position: fixed;
+    bottom: 18px;
+    right: 18px;
+    z-index: 2200;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.18);
+    font-weight: bold;
+    cursor: pointer;
+    display: inline-flex;
+    gap: 8px;
+    align-items:center;
+    touch-action: manipulation;
+  }
+  #goCartBtn:active { transform: translateY(1px); }
+  #goCartBtnBadge {
+    min-width:20px; height:20px; padding:0 6px; border-radius:999px;
+    display:inline-flex; align-items:center; justify-content:center;
+    background:#ef4444; color:white; font-weight:bold; font-size:12px;
+  }
+
+  /* Dragon width control inside modal */
+  #dragonWidthControl {
+    margin-top:12px;
+    display:flex;
+    gap:8px;
+    align-items:center;
+    justify-content:center;
+    flex-wrap:wrap;
+  }
+  #dragonWidthControl .dw-btn {
+    padding:8px 10px;
+    border-radius:8px;
+    background:var(--accent);
+    color:white;
+    border:none;
+    min-width:44px;
+    font-weight:bold;
+    touch-action: manipulation;
+  }
+  #dragonWidthControl .dw-count {
+    min-width:48px;
+    text-align:center;
+    font-weight:bold;
+    font-size:16px;
+    padding:6px 8px;
+    border-radius:8px;
+    border:1px solid #e5e7eb;
+    background:#fff;
+  }
+  #dragonWidthControl .dw-info { font-size:13px; color:#374151; }
+</style>
+
+<script>
+(function(){
+  // 25 cents per width (exact value you requested)
+  const EXTRA_PER_WIDTH = 0.25;
+  const MAX_WIDTH = 5;
+
+  // create floating cart button
+  const goBtn = document.createElement('button');
+  goBtn.id = 'goCartBtn';
+  goBtn.innerHTML = 'Cart <span id="goCartBtnBadge">0</span>';
+  document.body.appendChild(goBtn);
+
+  function updateCartBadge(){
+    const badge = document.getElementById('goCartBtnBadge');
+    if(!badge) return;
+    const count = (Array.isArray(window.cart) ? window.cart.length : 0);
+    badge.innerText = count > 99 ? '99+' : String(count);
+    badge.style.display = (count === 0 ? 'none' : 'inline-flex');
+  }
+
+  goBtn.addEventListener('click', ()=>{
+    const cartEl = document.getElementById('cart');
+    if(cartEl){
+      cartEl.scrollIntoView({behavior:'smooth', block:'start'});
+      cartEl.animate([{ boxShadow: '0 0 0 rgba(0,0,0,0)' }, { boxShadow: '0 8px 30px rgba(124,58,237,0.12)' }, { boxShadow: '0 0 0 rgba(0,0,0,0)' }], { duration: 700 });
+    }
+  });
+
+  // build Dragon width control DOM
+  function createDragonWidthControl(){
+    const wrapper = document.createElement('div');
+    wrapper.id = 'dragonWidthControl';
+    wrapper.innerHTML = `
+      <div class="dw-info">Dragon Scale extra width (max ${MAX_WIDTH}). Each + adds $${EXTRA_PER_WIDTH.toFixed(2)}.</div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button type="button" class="dw-btn" id="dwMinus" aria-label="Decrease width">−</button>
+        <div class="dw-count" id="dwCount">0</div>
+        <button type="button" class="dw-btn" id="dwPlus" aria-label="Increase width">+</button>
+      </div>
+    `;
+    return wrapper;
+  }
+
+  // helper: attach dragon control to modal content (defensive)
+  function attachDragonControlToModal(){
+    const content = document.querySelector('#colorModal .modal-content');
+    if(!content) return null;
+    // remove any leftover
+    const prev = document.getElementById('dragonWidthControl');
+    if(prev) prev.remove();
+    const ctl = createDragonWidthControl();
+    content.appendChild(ctl);
+    return ctl;
+  }
+
+  // Keep an ephemeral dragonWidth while modal open
+  let dragonWidth = 0;
+
+  // Observe clicks on shop grid Add buttons (works regardless of module scope)
+  const shopGrid = document.getElementById('shopGrid');
+  if(shopGrid){
+    shopGrid.addEventListener('click', (ev)=>{
+      // find clicked Add button inside a product card
+      const btn = ev.target.closest('button');
+      if(!btn) return;
+      // find product name within the same .card
+      const card = btn.closest('.card');
+      if(!card) return;
+      const h3 = card.querySelector('h3');
+      const pname = h3 ? h3.textContent.trim() : '';
+      // if Dragon Scale, wait briefly for the modal to open and then attach control
+      if(pname === 'Dragon Scale'){
+        setTimeout(()=>{
+          dragonWidth = 0;
+          const ctl = attachDragonControlToModal();
+          if(!ctl) return;
+          const dwCount = document.getElementById('dwCount');
+          const dwPlus = document.getElementById('dwPlus');
+          const dwMinus = document.getElementById('dwMinus');
+          function renderCount(){ if(dwCount) dwCount.innerText = String(dragonWidth); }
+          dwPlus.onclick = ()=> { if(dragonWidth < MAX_WIDTH) { dragonWidth++; renderCount(); } };
+          dwMinus.onclick = ()=> { if(dragonWidth > 0) { dragonWidth--; renderCount(); } };
+          // touch feedback
+          [dwPlus, dwMinus].forEach(b=>{
+            b.addEventListener('touchstart', (e)=>{ e.preventDefault(); b.classList.add('active-touch'); }, {passive:false});
+            b.addEventListener('touchend', ()=> b.classList.remove('active-touch'), {passive:true});
+          });
+          renderCount();
+        }, 60);
+      }
+    }, {passive:true});
+  }
+
+  // Also support the case where code elsewhere calls openModal: detect modal opening by observing colorModal display
+  const colorModal = document.getElementById('colorModal');
+  if(colorModal){
+    // MutationObserver to detect when modal is shown
+    const obs = new MutationObserver((mutations)=>{
+      mutations.forEach(m=>{
+        if(m.attributeName === 'style'){
+          const style = colorModal.style;
+          const isVisible = style.display !== '' && style.display !== 'none';
+          if(isVisible){
+            // check selectedBracelet if available globally; fallback to checking modal content heading
+            const nameFromGlobal = (typeof window.selectedBracelet !== 'undefined') ? window.selectedBracelet : null;
+            // If global says Dragon Scale OR modal content suggests it's Dragon Scale, attach control
+            if(nameFromGlobal === 'Dragon Scale'){
+              dragonWidth = 0;
+              const ctl = attachDragonControlToModal();
+              if(!ctl) return;
+              const dwCount = document.getElementById('dwCount');
+              const dwPlus = document.getElementById('dwPlus');
+              const dwMinus = document.getElementById('dwMinus');
+              function renderCount(){ if(dwCount) dwCount.innerText = String(dragonWidth); }
+              dwPlus.onclick = ()=> { if(dragonWidth < MAX_WIDTH) { dragonWidth++; renderCount(); } };
+              dwMinus.onclick = ()=> { if(dragonWidth > 0) { dragonWidth--; renderCount(); } };
+              [dwPlus, dwMinus].forEach(b=>{
+                b.addEventListener('touchstart', (e)=>{ e.preventDefault(); b.classList.add('active-touch'); }, {passive:false});
+                b.addEventListener('touchend', ()=> b.classList.remove('active-touch'), {passive:true});
+              });
+              renderCount();
+            } else {
+              // try to read bracelet name from modal DOM (if you show name there)
+              // no-op otherwise
+            }
+          } else {
+            // modal hidden -> cleanup
+            dragonWidth = 0;
+            const prev = document.getElementById('dragonWidthControl');
+            if(prev) prev.remove();
+          }
+        }
+      });
+    });
+    obs.observe(colorModal, { attributes: true, attributeFilter: ['style'] });
+  }
+
+  // Wrap confirmColors behavior by attaching our own handler to the DOM element.
+  const confirmBtn = document.getElementById('confirmColors');
+  if(confirmBtn){
+    // keep original handler if present
+    const prevHandler = confirmBtn.onclick;
+    confirmBtn.onclick = function(e){
+      // if ephemeral selectedBracelet equals Dragon Scale (try global var), handle width addition
+      const currentName = (typeof window.selectedBracelet !== 'undefined') ? window.selectedBracelet : null;
+      if(currentName === 'Dragon Scale'){
+        // try to get selectedColors from global variable; fallback to reading color picker selections in DOM
+        // we will prefer the global 'selectedColors' if it exists
+        const selColors = (typeof window.selectedColors !== 'undefined') ? window.selectedColors : Array.from(document.querySelectorAll('#colorPicker .selected')).map(x=>{
+          // attempt to infer color name from style.background (best-effort)
+          return x.style.background || '';
+        }).filter(Boolean);
+        if(!selColors || selColors.length === 0){ alert('Pick colors'); return; }
+        const basePrice = (typeof window.selectedPrice === 'number') ? window.selectedPrice : Number((document.querySelector('#colorModal') || {}).dataset?.price || 0);
+        const extra = (Number(dragonWidth) || 0) * EXTRA_PER_WIDTH;
+        const finalPrice = Number((basePrice || 0) + extra);
+        // push the item into global cart (existing app uses global 'cart' array)
+        if(!Array.isArray(window.cart)) window.cart = [];
+        window.cart.push({
+          name: 'Dragon Scale',
+          price: Number(finalPrice),
+          colors: selColors.slice(),
+          dragonWidth: Number(dragonWidth)
+        });
+        // close modal and re-render cart using your existing renderCart function if present
+        const modal = document.getElementById('colorModal'); if(modal) modal.style.display = 'none';
+        if(typeof window.renderCart === 'function') window.renderCart();
+        updateCartBadge();
+        dragonWidth = 0;
+        const ctl = document.getElementById('dragonWidthControl'); if(ctl) ctl.remove();
+        return;
+      }
+      // otherwise call previous behavior (if any)
+      if(typeof prevHandler === 'function'){
+        try { prevHandler.call(confirmBtn, e); } catch(err){ console.warn('old confirmColors failed', err); }
+      }
+      // update badge in any case
+      updateCartBadge();
+    };
+  }
+
+  // Enhanced renderCart: show dragonWidth details. We'll replace global renderCart but keep fallback.
+  const oldRenderCart = window.renderCart;
+  window.renderCart = function(){
+    try {
+      const itemsEl = document.getElementById('items');
+      const totalEl = document.getElementById('total');
+      if(!itemsEl || !totalEl){
+        if(typeof oldRenderCart === 'function') oldRenderCart();
+        return;
+      }
+      itemsEl.innerHTML = '';
+      let t = 0;
+      (Array.isArray(window.cart) ? window.cart : []).forEach((x,i)=>{
+        let widthHtml = '';
+        if(x.name === 'Dragon Scale' && Number(x.dragonWidth) > 0){
+          widthHtml = `<br><small>Extra width: ${x.dragonWidth} (adds $${(x.dragonWidth * EXTRA_PER_WIDTH).toFixed(2)})</small>`;
+        }
+        const colorsText = Array.isArray(x.colors) ? x.colors.join(", ") : "";
+        itemsEl.innerHTML += `<p><b>${x.name}</b> - $${Number(x.price).toFixed(2)}<br>${colorsText}${widthHtml}<br><button class="deleteBtn" onclick="removeFromCart(${i})">Remove</button></p>`;
+        t += Number(x.price) || 0;
+      });
+      totalEl.innerText = Number(t).toFixed(2);
+      updateCartBadge();
+    } catch(e){
+      console.warn('enhanced renderCart error', e);
+      if(typeof oldRenderCart === 'function') oldRenderCart();
+    }
+  };
+
+  // Ensure removeFromCart updates badge (wrap existing)
+  const oldRemove = window.removeFromCart;
+  window.removeFromCart = function(i){
+    if(typeof oldRemove === 'function'){
+      try { oldRemove(i); } catch(err){ console.warn('old removeFromCart error', err); }
+    } else {
+      if(Array.isArray(window.cart)) window.cart.splice(i,1);
+      if(typeof window.renderCart === 'function') window.renderCart();
+    }
+    updateCartBadge();
+  };
+
+  // initial sync
+  document.addEventListener('DOMContentLoaded', updateCartBadge, {once:true});
+  setTimeout(updateCartBadge, 300);
+  // defensive periodic sync
+  setInterval(updateCartBadge, 2500);
+
+})();
+</script>
 </body>
 </html>
